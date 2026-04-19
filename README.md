@@ -1,6 +1,13 @@
 # ExGraphblas
 
-**TODO: Add description**
+`ex_graphblas` is an Elixir library for sparse linear algebra and graph computation inspired by the GraphBLAS model:
+- sparse matrices and vectors; 
+- sparse matrices and vectors;
+- semirings, monoids, masks, descriptors;
+- graph algorithms expressed as linear algebra;
+- native-performance execution where needed;
+- idiomatic Elixir data structures and documentation at the boundary
+
 
 ## Installation
 
