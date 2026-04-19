@@ -1,28 +1,42 @@
 defmodule GraphBLAS.MixProject do
   use Mix.Project
 
+  @moduledoc """
+  Mix project configuration for GraphBLAS.
+
+  GraphBLAS is an Elixir library for sparse linear algebra and graph
+  computation inspired by the GraphBLAS model. It provides idiomatic
+  Elixir data structures at the boundary while delegating computation
+  to swappable backends (initially SuiteSparse:GraphBLAS via Zigler).
+  """
+
   def project do
     [
       app: :ex_graphblas,
       version: "0.1.0",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      elixirc_paths: elixirc_paths(Mix.env()),
+      docs: [
+        main: "GraphBLAS",
+        extras: ["README.md"]
+      ]
     ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
     [
       extra_applications: [:logger]
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false}
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 end
