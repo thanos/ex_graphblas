@@ -106,6 +106,7 @@ defmodule GraphBLAS.Backend.Elixir do
           Enum.reduce(b.data.entries, outer_acc, fn {{k2, j}, b_val}, inner_acc ->
             if k == k2 do
               product = apply_op(multiply_fn, a_val, b_val)
+
               Map.update(inner_acc, {i, j}, product, fn existing ->
                 apply_op(add_fn, existing, product)
               end)
@@ -131,7 +132,9 @@ defmodule GraphBLAS.Backend.Elixir do
       result_entries =
         Enum.reduce(matrix.data.entries, %{}, fn {{i, k}, a_val}, acc ->
           case Map.get(vector.data.entries, k) do
-            nil -> acc
+            nil ->
+              acc
+
             b_val ->
               product = apply_op(multiply_fn, a_val, b_val)
               Map.update(acc, i, product, fn existing -> apply_op(add_fn, existing, product) end)
@@ -149,7 +152,9 @@ defmodule GraphBLAS.Backend.Elixir do
     with {:ok, m} <- resolve_monoid(monoid),
          :ok <- validate_same_shape(a, b) do
       op_fn = resolve_operator_fn(m.operator)
-      combined = Map.merge(a.data.entries, b.data.entries, fn _key, v1, v2 -> apply_op(op_fn, v1, v2) end)
+
+      combined =
+        Map.merge(a.data.entries, b.data.entries, fn _key, v1, v2 -> apply_op(op_fn, v1, v2) end)
 
       data = %{entries: combined, nrows: elem(a.shape, 0), ncols: elem(a.shape, 1), type: a.type}
       {:ok, %Matrix{shape: a.shape, type: a.type, data: data}}
@@ -161,9 +166,19 @@ defmodule GraphBLAS.Backend.Elixir do
     with {:ok, m} <- resolve_monoid(monoid),
          :ok <- validate_same_shape(a, b) do
       op_fn = resolve_operator_fn(m.operator)
-      intersection = Map.intersect(a.data.entries, b.data.entries, fn _key, v1, v2 -> apply_op(op_fn, v1, v2) end)
 
-      data = %{entries: intersection, nrows: elem(a.shape, 0), ncols: elem(a.shape, 1), type: a.type}
+      intersection =
+        Map.intersect(a.data.entries, b.data.entries, fn _key, v1, v2 ->
+          apply_op(op_fn, v1, v2)
+        end)
+
+      data = %{
+        entries: intersection,
+        nrows: elem(a.shape, 0),
+        ncols: elem(a.shape, 1),
+        type: a.type
+      }
+
       {:ok, %Matrix{shape: a.shape, type: a.type, data: data}}
     end
   end
@@ -201,12 +216,14 @@ defmodule GraphBLAS.Backend.Elixir do
   @impl GraphBLAS.Backend
   def matrix_to_dense(%Matrix{data: data, shape: {nrows, ncols}, type: type}) do
     default = default_value(type)
+
     rows =
       for r <- 0..(nrows - 1) do
         for c <- 0..(ncols - 1) do
           Map.get(data.entries, {r, c}, default)
         end
       end
+
     {:ok, rows}
   end
 
@@ -269,7 +286,10 @@ defmodule GraphBLAS.Backend.Elixir do
           Enum.reduce(matrix.data.entries, acc, fn {{k2, j}, m_val}, inner_acc ->
             if k == k2 do
               product = apply_op(multiply_fn, v_val, m_val)
-              Map.update(inner_acc, j, product, fn existing -> apply_op(add_fn, existing, product) end)
+
+              Map.update(inner_acc, j, product, fn existing ->
+                apply_op(add_fn, existing, product)
+              end)
             else
               inner_acc
             end
@@ -287,7 +307,10 @@ defmodule GraphBLAS.Backend.Elixir do
     with {:ok, m} <- resolve_monoid(monoid),
          :ok <- validate_same_vector_size(a, b) do
       op_fn = resolve_operator_fn(m.operator)
-      combined = Map.merge(a.data.entries, b.data.entries, fn _k, v1, v2 -> apply_op(op_fn, v1, v2) end)
+
+      combined =
+        Map.merge(a.data.entries, b.data.entries, fn _k, v1, v2 -> apply_op(op_fn, v1, v2) end)
+
       data = %{entries: combined, size: a.size, type: a.type}
       {:ok, %Vector{size: a.size, type: a.type, data: data}}
     end
@@ -298,7 +321,10 @@ defmodule GraphBLAS.Backend.Elixir do
     with {:ok, m} <- resolve_monoid(monoid),
          :ok <- validate_same_vector_size(a, b) do
       op_fn = resolve_operator_fn(m.operator)
-      intersection = Map.intersect(a.data.entries, b.data.entries, fn _k, v1, v2 -> apply_op(op_fn, v1, v2) end)
+
+      intersection =
+        Map.intersect(a.data.entries, b.data.entries, fn _k, v1, v2 -> apply_op(op_fn, v1, v2) end)
+
       data = %{entries: intersection, size: a.size, type: a.type}
       {:ok, %Vector{size: a.size, type: a.type, data: data}}
     end
@@ -333,12 +359,20 @@ defmodule GraphBLAS.Backend.Elixir do
   #############################################################################
 
   defp validate_dimensions(nrows, ncols) when nrows >= 0 and ncols >= 0, do: :ok
-  defp validate_dimensions(nrows, ncols), do: Error.error({:invalid_argument, "dimensions must be non-negative, got {#{nrows}, #{ncols}}"})
+
+  defp validate_dimensions(nrows, ncols),
+    do:
+      Error.error(
+        {:invalid_argument, "dimensions must be non-negative, got {#{nrows}, #{ncols}}"}
+      )
 
   defp validate_size(size) when size >= 0, do: :ok
-  defp validate_size(size), do: Error.error({:invalid_argument, "vector size must be non-negative, got #{size}"})
+
+  defp validate_size(size),
+    do: Error.error({:invalid_argument, "vector size must be non-negative, got #{size}"})
 
   defp validate_entries([], _nrows, _ncols), do: :ok
+
   defp validate_entries([{r, c, _v} | rest], nrows, ncols) do
     cond do
       r < 0 or r >= nrows -> Error.error({:index_out_of_bounds, r, :row, nrows})
@@ -348,6 +382,7 @@ defmodule GraphBLAS.Backend.Elixir do
   end
 
   defp validate_vector_entries([], _size), do: :ok
+
   defp validate_vector_entries([{idx, _v} | rest], size) do
     if idx < 0 or idx >= size do
       Error.error({:index_out_of_bounds, idx, :index, size})
@@ -357,15 +392,21 @@ defmodule GraphBLAS.Backend.Elixir do
   end
 
   defp validate_mxm_dims(%Matrix{shape: {_, ncols_a}}, %Matrix{shape: {nrows_b, _}}) do
-    if ncols_a == nrows_b, do: :ok, else: Error.error({:dimension_mismatch, {ncols_a, nrows_b}, "ncols(A) != nrows(B)"})
+    if ncols_a == nrows_b,
+      do: :ok,
+      else: Error.error({:dimension_mismatch, {ncols_a, nrows_b}, "ncols(A) != nrows(B)"})
   end
 
   defp validate_mxv_dims(%Matrix{shape: {_, ncols}}, %Vector{size: size}) do
-    if ncols == size, do: :ok, else: Error.error({:dimension_mismatch, {ncols, size}, "ncols(matrix) != size(vector)"})
+    if ncols == size,
+      do: :ok,
+      else: Error.error({:dimension_mismatch, {ncols, size}, "ncols(matrix) != size(vector)"})
   end
 
   defp validate_vxm_dims(%Vector{size: size}, %Matrix{shape: {nrows, _}}) do
-    if size == nrows, do: :ok, else: Error.error({:dimension_mismatch, {size, nrows}, "size(vector) != nrows(matrix)"})
+    if size == nrows,
+      do: :ok,
+      else: Error.error({:dimension_mismatch, {size, nrows}, "size(vector) != nrows(matrix)"})
   end
 
   defp validate_same_shape(%Matrix{shape: s1}, %Matrix{shape: s2}) do

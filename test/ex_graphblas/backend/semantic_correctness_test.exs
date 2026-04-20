@@ -126,7 +126,7 @@ defmodule GraphBLAS.Backend.SemanticCorrectnessTest do
   end
 
   #############################################################################
-  # mxm with min_plus semiring (shortest path)
+  # mxm with plus_min semiring (shortest path)
   #############################################################################
 
   describe "mxm with plus_min semiring (semantic)" do
@@ -373,7 +373,14 @@ defmodule GraphBLAS.Backend.SemanticCorrectnessTest do
       # [[1,0,2],
       #  [0,3,0],
       #  [4,0,5]]
-      assert {:ok, m} = Matrix.from_coo(3, 3, [{0, 0, 1}, {0, 2, 2}, {1, 1, 3}, {2, 0, 4}, {2, 2, 5}], :int64)
+      assert {:ok, m} =
+               Matrix.from_coo(
+                 3,
+                 3,
+                 [{0, 0, 1}, {0, 2, 2}, {1, 1, 3}, {2, 0, 4}, {2, 2, 5}],
+                 :int64
+               )
+
       assert {:ok, dense} = Matrix.to_dense(m)
       assert dense == [[1, 0, 2], [0, 3, 0], [4, 0, 5]]
     end
