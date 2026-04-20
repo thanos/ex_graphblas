@@ -95,7 +95,7 @@ defmodule GraphBLAS.Monoid do
       new(
         name: :min,
         operator: :min,
-        identity: GraphBLAS.Scalar.new(:int64, 0) |> max_int(:int64),
+        identity: max_int(GraphBLAS.Scalar.new(:int64, 0), :int64),
         type: :int64
       )
 
@@ -107,7 +107,7 @@ defmodule GraphBLAS.Monoid do
       new(
         name: :max,
         operator: :max,
-        identity: GraphBLAS.Scalar.new(:int64, 0) |> min_int(:int64),
+        identity: min_int(GraphBLAS.Scalar.new(:int64, 0), :int64),
         type: :int64
       )
 

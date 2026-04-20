@@ -2,6 +2,10 @@
 /_build/
 
 /docs/phases
+/prompts/
+/plans/
+
+.tool-versions
 
 # If you run "mix test --cover", coverage assets end up here.
 /cover/

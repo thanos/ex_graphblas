@@ -9,8 +9,8 @@ defmodule GraphBLAS.Backend.SemanticCorrectnessTest do
   """
   use ExUnit.Case, async: true
 
-  alias GraphBLAS.{Matrix, Vector, Scalar}
   alias GraphBLAS.Backend.Elixir, as: RefBackend
+  alias GraphBLAS.{Matrix, Scalar, Vector}
 
   #############################################################################
   # Matrix construction from COO

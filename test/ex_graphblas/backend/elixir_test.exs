@@ -1,8 +1,8 @@
 defmodule GraphBLAS.Backend.ElixirTest do
   use ExUnit.Case, async: true
 
-  alias GraphBLAS.{Matrix, Vector, Scalar}
   alias GraphBLAS.Backend.Elixir, as: RefBackend
+  alias GraphBLAS.{Matrix, Scalar, Vector}
 
   describe "matrix_new/4" do
     test "creates an empty matrix" do

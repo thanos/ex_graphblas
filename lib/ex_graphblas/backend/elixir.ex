@@ -38,7 +38,7 @@ defmodule GraphBLAS.Backend.Elixir do
 
   @behaviour GraphBLAS.Backend
 
-  alias GraphBLAS.{Matrix, Vector, Scalar, Semiring, Monoid, Types, Error}
+  alias GraphBLAS.{Error, Matrix, Monoid, Scalar, Semiring, Types, Vector}
 
   #############################################################################
   # Matrix callbacks
@@ -96,28 +96,12 @@ defmodule GraphBLAS.Backend.Elixir do
          :ok <- validate_mxm_dims(a, b) do
       {nrows_a, _ncols_a} = a.shape
       {_nrows_b, ncols_b} = b.shape
-      result_type = sr.type
       multiply_fn = resolve_operator_fn(sr.multiply)
       add_fn = resolve_operator_fn(sr.add)
 
-      # Flat map approach: iterate A entries, for each {i,k} check B for {k,j}
-      result_entries =
-        Enum.reduce(a.data.entries, %{}, fn {{i, k}, a_val}, outer_acc ->
-          Enum.reduce(b.data.entries, outer_acc, fn {{k2, j}, b_val}, inner_acc ->
-            if k == k2 do
-              product = apply_op(multiply_fn, a_val, b_val)
-
-              Map.update(inner_acc, {i, j}, product, fn existing ->
-                apply_op(add_fn, existing, product)
-              end)
-            else
-              inner_acc
-            end
-          end)
-        end)
-
-      data = %{entries: result_entries, nrows: nrows_a, ncols: ncols_b, type: result_type}
-      {:ok, %Matrix{shape: {nrows_a, ncols_b}, type: result_type, data: data}}
+      result_entries = mxm_multiply(a, b, multiply_fn, add_fn)
+      data = %{entries: result_entries, nrows: nrows_a, ncols: ncols_b, type: sr.type}
+      {:ok, %Matrix{shape: {nrows_a, ncols_b}, type: sr.type, data: data}}
     end
   end
 
@@ -125,25 +109,13 @@ defmodule GraphBLAS.Backend.Elixir do
   def matrix_mxv(%Matrix{} = matrix, %Vector{} = vector, semiring, _opts) do
     with {:ok, sr} <- resolve_semiring(semiring),
          :ok <- validate_mxv_dims(matrix, vector) do
-      result_type = sr.type
       multiply_fn = resolve_operator_fn(sr.multiply)
       add_fn = resolve_operator_fn(sr.add)
 
-      result_entries =
-        Enum.reduce(matrix.data.entries, %{}, fn {{i, k}, a_val}, acc ->
-          case Map.get(vector.data.entries, k) do
-            nil ->
-              acc
-
-            b_val ->
-              product = apply_op(multiply_fn, a_val, b_val)
-              Map.update(acc, i, product, fn existing -> apply_op(add_fn, existing, product) end)
-          end
-        end)
-
+      result_entries = mxv_multiply(matrix, vector, multiply_fn, add_fn)
       nrows = elem(matrix.shape, 0)
-      data = %{entries: result_entries, size: nrows, type: result_type}
-      {:ok, %Vector{size: nrows, type: result_type, data: data}}
+      data = %{entries: result_entries, size: nrows, type: sr.type}
+      {:ok, %Vector{size: nrows, type: sr.type, data: data}}
     end
   end
 
@@ -269,7 +241,7 @@ defmodule GraphBLAS.Backend.Elixir do
 
   @impl GraphBLAS.Backend
   def vector_to_entries(%Vector{data: data}) do
-    entries = data.entries |> Enum.sort_by(fn {idx, _val} -> idx end)
+    entries = Enum.sort_by(data.entries, fn {idx, _val} -> idx end)
     {:ok, entries}
   end
 
@@ -277,28 +249,13 @@ defmodule GraphBLAS.Backend.Elixir do
   def vector_vxm(%Vector{} = vector, %Matrix{} = matrix, semiring, _opts) do
     with {:ok, sr} <- resolve_semiring(semiring),
          :ok <- validate_vxm_dims(vector, matrix) do
-      result_type = sr.type
       multiply_fn = resolve_operator_fn(sr.multiply)
       add_fn = resolve_operator_fn(sr.add)
 
-      result_entries =
-        Enum.reduce(vector.data.entries, %{}, fn {k, v_val}, acc ->
-          Enum.reduce(matrix.data.entries, acc, fn {{k2, j}, m_val}, inner_acc ->
-            if k == k2 do
-              product = apply_op(multiply_fn, v_val, m_val)
-
-              Map.update(inner_acc, j, product, fn existing ->
-                apply_op(add_fn, existing, product)
-              end)
-            else
-              inner_acc
-            end
-          end)
-        end)
-
+      result_entries = vxm_multiply(vector, matrix, multiply_fn, add_fn)
       result_size = elem(matrix.shape, 1)
-      data_result = %{entries: result_entries, size: result_size, type: result_type}
-      {:ok, %Vector{size: result_size, type: result_type, data: data_result}}
+      data_result = %{entries: result_entries, size: result_size, type: sr.type}
+      {:ok, %Vector{size: result_size, type: sr.type, data: data_result}}
     end
   end
 
@@ -333,16 +290,7 @@ defmodule GraphBLAS.Backend.Elixir do
   @impl GraphBLAS.Backend
   def vector_reduce(%Vector{} = vector, monoid, _opts) do
     with {:ok, m} <- resolve_monoid(monoid) do
-      op_fn = resolve_operator_fn(m.operator)
-      vals = Map.values(vector.data.entries)
-
-      result =
-        case vals do
-          [] -> m.identity
-          [single] -> single
-          _ -> Enum.reduce(vals, fn a, b -> apply_op(op_fn, b, a) end)
-        end
-
+      result = reduce_values(vector.data.entries, m)
       {:ok, %Scalar{type: m.type, value: result}}
     end
   end
@@ -457,6 +405,63 @@ defmodule GraphBLAS.Backend.Elixir do
   defp resolve_operator_fn(fun) when is_function(fun, 2), do: fun
 
   defp apply_op(fun, a, b), do: fun.(a, b)
+
+  defp reduce_values(entries, %{operator: op, identity: identity}) do
+    op_fn = resolve_operator_fn(op)
+    vals = Map.values(entries)
+
+    case vals do
+      [] -> identity
+      [single] -> single
+      _ -> Enum.reduce(vals, fn a, b -> apply_op(op_fn, b, a) end)
+    end
+  end
+
+  defp mxm_multiply(a, b, multiply_fn, add_fn) do
+    Enum.reduce(a.data.entries, %{}, fn {{i, k}, a_val}, acc ->
+      mxm_row(k, i, a_val, b, multiply_fn, add_fn, acc)
+    end)
+  end
+
+  defp mxm_row(k, i, a_val, b, multiply_fn, add_fn, acc) do
+    Enum.reduce(b.data.entries, acc, fn {{k2, j}, b_val}, inner_acc ->
+      if k == k2 do
+        accumulate_product(inner_acc, {i, j}, a_val, b_val, multiply_fn, add_fn)
+      else
+        inner_acc
+      end
+    end)
+  end
+
+  defp mxv_multiply(matrix, vector, multiply_fn, add_fn) do
+    Enum.reduce(matrix.data.entries, %{}, fn {{i, k}, a_val}, acc ->
+      case Map.get(vector.data.entries, k) do
+        nil -> acc
+        b_val -> accumulate_product(acc, i, a_val, b_val, multiply_fn, add_fn)
+      end
+    end)
+  end
+
+  defp vxm_multiply(vector, matrix, multiply_fn, add_fn) do
+    Enum.reduce(vector.data.entries, %{}, fn {k, v_val}, acc ->
+      vxm_row(k, v_val, matrix, multiply_fn, add_fn, acc)
+    end)
+  end
+
+  defp vxm_row(k, v_val, matrix, multiply_fn, add_fn, acc) do
+    Enum.reduce(matrix.data.entries, acc, fn {{k2, j}, m_val}, inner_acc ->
+      if k == k2 do
+        accumulate_product(inner_acc, j, v_val, m_val, multiply_fn, add_fn)
+      else
+        inner_acc
+      end
+    end)
+  end
+
+  defp accumulate_product(acc, key, a_val, b_val, multiply_fn, add_fn) do
+    product = apply_op(multiply_fn, a_val, b_val)
+    Map.update(acc, key, product, fn existing -> apply_op(add_fn, existing, product) end)
+  end
 
   defp default_value(:bool), do: false
   defp default_value(:fp32), do: 0.0
