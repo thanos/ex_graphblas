@@ -98,6 +98,8 @@ defmodule GraphBLAS.Native do
 
   const GrB_BLOCKING: c_int = 0;
   const GrB_SUCCESS: c_int = 0;
+  const GxB_JIT_OFF: c_int = 0;
+  const GxB_JIT_C_CONTROL: c_int = 7029;
   const GrB_UNINITIALIZED_OBJECT: c_int = 4;
   const GrB_NULL_POINTER: c_int = 5;
   const GrB_INVALID_VALUE: c_int = 6;
@@ -157,6 +159,7 @@ defmodule GraphBLAS.Native do
   extern fn GrB_Vector_reduce_INT64(c: *i64, accum: GrB_BinaryOp, monoid: GrB_Monoid, u: GrB_Vector, desc: GrB_Descriptor) GrB_Info;
   extern fn GrB_Vector_reduce_FP64(c: *f64, accum: GrB_BinaryOp, monoid: GrB_Monoid, u: GrB_Vector, desc: GrB_Descriptor) GrB_Info;
   extern fn GrB_Vector_reduce_BOOL(c: *bool, accum: GrB_BinaryOp, monoid: GrB_Monoid, u: GrB_Vector, desc: GrB_Descriptor) GrB_Info;
+  extern fn GxB_Global_Option_set_INT32(option: c_int, value: c_int) GrB_Info;
 
   // SuiteSparse semiring globals
   extern var GrB_PLUS_TIMES_SEMIRING_INT64: GrB_Semiring;
@@ -307,6 +310,10 @@ defmodule GraphBLAS.Native do
   pub fn grb_init() !void {
       const info = GrB_init(GrB_BLOCKING);
       try translate_info(info);
+      // Disable SuiteSparse JIT compiler — pre-compiled kernels suffice
+      // and JIT fails on some semirings (plus_min, etc.) returning
+      // GxB_JIT_ERROR (-7001) which causes dirty_cpu NIFs to hang.
+      _ = GxB_Global_Option_set_INT32(GxB_JIT_C_CONTROL, GxB_JIT_OFF);
   }
 
   pub fn grb_finalize() void {

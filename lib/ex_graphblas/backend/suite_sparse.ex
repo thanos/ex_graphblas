@@ -43,7 +43,8 @@ defmodule GraphBLAS.Backend.SuiteSparse do
 
   @impl GraphBLAS.Backend
   def matrix_new(nrows, ncols, type, _opts) do
-    with :ok <- validate_type(type) do
+    with :ok <- validate_type(type),
+         :ok <- validate_dimensions(nrows, ncols) do
       code = type_to_code(type)
 
       case GraphBLAS.Native.matrix_new(nrows, ncols, code) do

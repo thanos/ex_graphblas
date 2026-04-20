@@ -401,7 +401,7 @@ defmodule GraphBLAS.Backend.Elixir do
   defp resolve_operator_fn(:max), do: &max/2
   defp resolve_operator_fn(:land), do: &Kernel.and/2
   defp resolve_operator_fn(:lor), do: &Kernel.or/2
-  defp resolve_operator_fn(:lxor), do: &Bitwise.bxor/2
+  defp resolve_operator_fn(:lxor), do: fn a, b -> a != b end
   defp resolve_operator_fn(fun) when is_function(fun, 2), do: fun
 
   defp apply_op(fun, a, b), do: fun.(a, b)

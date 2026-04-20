@@ -22,4 +22,16 @@ defmodule GraphBLAS.ConfigTest do
       assert Config.resolve_backend(type: :int64, backend: MyBackend) == MyBackend
     end
   end
+
+  describe "default_int_type/0" do
+    test "returns int64 by default" do
+      assert Config.default_int_type() == :int64
+    end
+  end
+
+  describe "default_fp_type/0" do
+    test "returns fp64 by default" do
+      assert Config.default_fp_type() == :fp64
+    end
+  end
 end
