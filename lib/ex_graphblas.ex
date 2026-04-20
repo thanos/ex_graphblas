@@ -39,11 +39,11 @@ defmodule GraphBLAS do
 
   ## Backend selection
 
-  The default backend is `GraphBLAS.Backend.Reference`. To select a
+  The default backend is `GraphBLAS.Backend.Elixir`. To select a
   different backend:
 
       # Application config
-      config :ex_graphblas, default_backend: GraphBLAS.Backend.Reference
+      config :ex_graphblas, default_backend: GraphBLAS.Backend.Elixir
 
       # Per-call override
       GraphBLAS.Matrix.from_coo(3, 3, entries, :int64, backend: MyBackend)
