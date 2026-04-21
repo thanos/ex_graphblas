@@ -655,4 +655,340 @@ defmodule GraphBLAS.SuiteSparseBackendTest do
       SuiteSparse.vector_free(v)
     end
   end
+
+  describe "matrix_set" do
+    test "sets an int64 value" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
+      {:ok, updated} = SuiteSparse.matrix_set(m, 1, 1, 5)
+      {:ok, coo} = SuiteSparse.matrix_to_coo(updated)
+      assert {1, 1, 5} in coo
+      SuiteSparse.matrix_free(updated)
+    end
+
+    test "sets a fp64 value" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [], :fp64, [])
+      {:ok, updated} = SuiteSparse.matrix_set(m, 0, 1, 3.14)
+      {:ok, coo} = SuiteSparse.matrix_to_coo(updated)
+      assert {0, 1, 3.14} in coo
+      SuiteSparse.matrix_free(updated)
+    end
+
+    test "sets a bool value" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [], :bool, [])
+      {:ok, updated} = SuiteSparse.matrix_set(m, 0, 0, true)
+      {:ok, coo} = SuiteSparse.matrix_to_coo(updated)
+      assert {0, 0, true} in coo
+      SuiteSparse.matrix_free(updated)
+    end
+
+    test "overwrites existing value" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
+      {:ok, updated} = SuiteSparse.matrix_set(m, 0, 0, 42)
+      {:ok, coo} = SuiteSparse.matrix_to_coo(updated)
+      assert {0, 0, 42} in coo
+      refute {0, 0, 1} in coo
+      SuiteSparse.matrix_free(updated)
+    end
+
+    test "rejects out-of-bounds row" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
+      assert {:error, %GraphBLAS.Error{}} = SuiteSparse.matrix_set(m, 5, 0, 1)
+      SuiteSparse.matrix_free(m)
+    end
+
+    test "rejects out-of-bounds col" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
+      assert {:error, %GraphBLAS.Error{}} = SuiteSparse.matrix_set(m, 0, 5, 1)
+      SuiteSparse.matrix_free(m)
+    end
+  end
+
+  describe "matrix_extract" do
+    test "extracts a stored int64 value" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 42}], :int64, [])
+      assert {:ok, 42} = SuiteSparse.matrix_extract(m, 0, 0)
+      SuiteSparse.matrix_free(m)
+    end
+
+    test "returns default for structural zero (int64)" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 42}], :int64, [])
+      assert {:ok, 0} = SuiteSparse.matrix_extract(m, 1, 1)
+      SuiteSparse.matrix_free(m)
+    end
+
+    test "returns default for structural zero (fp64)" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1.5}], :fp64, [])
+      assert {:ok, 0.0} = SuiteSparse.matrix_extract(m, 1, 1)
+      SuiteSparse.matrix_free(m)
+    end
+
+    test "returns default for structural zero (bool)" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, true}], :bool, [])
+      assert {:ok, false} = SuiteSparse.matrix_extract(m, 1, 1)
+      SuiteSparse.matrix_free(m)
+    end
+
+    test "extracts a stored fp64 value" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 3.14}], :fp64, [])
+      assert {:ok, v} = SuiteSparse.matrix_extract(m, 0, 0)
+      assert_in_delta v, 3.14, 0.001
+      SuiteSparse.matrix_free(m)
+    end
+
+    test "extracts a stored bool value" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, true}], :bool, [])
+      assert {:ok, true} = SuiteSparse.matrix_extract(m, 0, 0)
+      SuiteSparse.matrix_free(m)
+    end
+
+    test "rejects out-of-bounds row" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
+      assert {:error, %GraphBLAS.Error{}} = SuiteSparse.matrix_extract(m, 5, 0)
+      SuiteSparse.matrix_free(m)
+    end
+  end
+
+  describe "matrix_dup" do
+    test "creates a deep copy with same data" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}, {1, 1, 2}], :int64, [])
+      {:ok, copy} = SuiteSparse.matrix_dup(m)
+
+      {:ok, coo_orig} = SuiteSparse.matrix_to_coo(m)
+      {:ok, coo_copy} = SuiteSparse.matrix_to_coo(copy)
+      assert sort_coo(coo_orig) == sort_coo(coo_copy)
+
+      SuiteSparse.matrix_free(m)
+      SuiteSparse.matrix_free(copy)
+    end
+
+    test "copy is independent from original" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
+      {:ok, copy} = SuiteSparse.matrix_dup(m)
+
+      {:ok, updated} = SuiteSparse.matrix_set(copy, 0, 0, 99)
+      {:ok, val_copy} = SuiteSparse.matrix_extract(updated, 0, 0)
+      assert val_copy == 99
+
+      {:ok, val_orig} = SuiteSparse.matrix_extract(m, 0, 0)
+      assert val_orig == 1
+
+      SuiteSparse.matrix_free(m)
+      SuiteSparse.matrix_free(copy)
+      SuiteSparse.matrix_free(updated)
+    end
+
+    test "duplicates fp64 matrix" do
+      {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1.5}], :fp64, [])
+      {:ok, copy} = SuiteSparse.matrix_dup(m)
+
+      {:ok, coo_orig} = SuiteSparse.matrix_to_coo(m)
+      {:ok, coo_copy} = SuiteSparse.matrix_to_coo(copy)
+      assert length(coo_orig) == length(coo_copy)
+
+      SuiteSparse.matrix_free(m)
+      SuiteSparse.matrix_free(copy)
+    end
+  end
+
+  describe "vector_set" do
+    test "sets an int64 value" do
+      {:ok, v} = SuiteSparse.vector_from_entries(3, [{0, 1}], :int64, [])
+      {:ok, updated} = SuiteSparse.vector_set(v, 1, 5)
+      {:ok, entries} = SuiteSparse.vector_to_entries(updated)
+      assert {1, 5} in entries
+      SuiteSparse.vector_free(updated)
+    end
+
+    test "sets a fp64 value" do
+      {:ok, v} = SuiteSparse.vector_new(3, :fp64, [])
+      {:ok, updated} = SuiteSparse.vector_set(v, 0, 2.5)
+      {:ok, entries} = SuiteSparse.vector_to_entries(updated)
+      assert {0, 2.5} in entries
+      SuiteSparse.vector_free(updated)
+    end
+
+    test "sets a bool value" do
+      {:ok, v} = SuiteSparse.vector_new(3, :bool, [])
+      {:ok, updated} = SuiteSparse.vector_set(v, 1, true)
+      {:ok, entries} = SuiteSparse.vector_to_entries(updated)
+      assert {1, true} in entries
+      SuiteSparse.vector_free(updated)
+    end
+
+    test "overwrites existing value" do
+      {:ok, v} = SuiteSparse.vector_from_entries(3, [{0, 1}], :int64, [])
+      {:ok, updated} = SuiteSparse.vector_set(v, 0, 42)
+      {:ok, entries} = SuiteSparse.vector_to_entries(updated)
+      assert {0, 42} in entries
+      refute {0, 1} in entries
+      SuiteSparse.vector_free(updated)
+    end
+
+    test "rejects out-of-bounds index" do
+      {:ok, v} = SuiteSparse.vector_from_entries(3, [{0, 1}], :int64, [])
+      assert {:error, %GraphBLAS.Error{}} = SuiteSparse.vector_set(v, 5, 1)
+      SuiteSparse.vector_free(v)
+    end
+  end
+
+  describe "vector_extract" do
+    test "extracts a stored int64 value" do
+      {:ok, v} = SuiteSparse.vector_from_entries(3, [{0, 42}], :int64, [])
+      assert {:ok, 42} = SuiteSparse.vector_extract(v, 0)
+      SuiteSparse.vector_free(v)
+    end
+
+    test "returns default for structural zero (int64)" do
+      {:ok, v} = SuiteSparse.vector_from_entries(3, [{0, 42}], :int64, [])
+      assert {:ok, 0} = SuiteSparse.vector_extract(v, 1)
+      SuiteSparse.vector_free(v)
+    end
+
+    test "returns default for structural zero (fp64)" do
+      {:ok, v} = SuiteSparse.vector_from_entries(3, [{0, 1.5}], :fp64, [])
+      assert {:ok, 0.0} = SuiteSparse.vector_extract(v, 1)
+      SuiteSparse.vector_free(v)
+    end
+
+    test "returns default for structural zero (bool)" do
+      {:ok, v} = SuiteSparse.vector_from_entries(3, [{0, true}], :bool, [])
+      assert {:ok, false} = SuiteSparse.vector_extract(v, 1)
+      SuiteSparse.vector_free(v)
+    end
+
+    test "extracts a stored fp64 value" do
+      {:ok, v} = SuiteSparse.vector_from_entries(3, [{0, 3.14}], :fp64, [])
+      assert {:ok, val} = SuiteSparse.vector_extract(v, 0)
+      assert_in_delta val, 3.14, 0.001
+      SuiteSparse.vector_free(v)
+    end
+
+    test "rejects out-of-bounds index" do
+      {:ok, v} = SuiteSparse.vector_from_entries(3, [{0, 1}], :int64, [])
+      assert {:error, %GraphBLAS.Error{}} = SuiteSparse.vector_extract(v, 5)
+      SuiteSparse.vector_free(v)
+    end
+  end
+
+  describe "vector_dup" do
+    test "creates a deep copy with same data" do
+      {:ok, v} = SuiteSparse.vector_from_entries(3, [{0, 1}, {1, 2}], :int64, [])
+      {:ok, copy} = SuiteSparse.vector_dup(v)
+
+      {:ok, entries_orig} = SuiteSparse.vector_to_entries(v)
+      {:ok, entries_copy} = SuiteSparse.vector_to_entries(copy)
+      assert sort_entries(entries_orig) == sort_entries(entries_copy)
+
+      SuiteSparse.vector_free(v)
+      SuiteSparse.vector_free(copy)
+    end
+
+    test "copy is independent from original" do
+      {:ok, v} = SuiteSparse.vector_from_entries(3, [{0, 1}], :int64, [])
+      {:ok, copy} = SuiteSparse.vector_dup(v)
+
+      {:ok, updated} = SuiteSparse.vector_set(copy, 0, 99)
+      {:ok, val_copy} = SuiteSparse.vector_extract(updated, 0)
+      assert val_copy == 99
+
+      {:ok, val_orig} = SuiteSparse.vector_extract(v, 0)
+      assert val_orig == 1
+
+      SuiteSparse.vector_free(v)
+      SuiteSparse.vector_free(copy)
+      SuiteSparse.vector_free(updated)
+    end
+
+    test "duplicates bool vector" do
+      {:ok, v} = SuiteSparse.vector_from_entries(3, [{0, true}, {2, true}], :bool, [])
+      {:ok, copy} = SuiteSparse.vector_dup(v)
+
+      {:ok, entries_orig} = SuiteSparse.vector_to_entries(v)
+      {:ok, entries_copy} = SuiteSparse.vector_to_entries(copy)
+      assert sort_entries(entries_orig) == sort_entries(entries_copy)
+
+      SuiteSparse.vector_free(v)
+      SuiteSparse.vector_free(copy)
+    end
+  end
+
+  describe "mask on mxm" do
+    test "structural mask restricts output positions" do
+      {:ok, a} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}, {0, 1, 2}, {1, 0, 3}, {1, 1, 4}], :int64, [])
+      {:ok, b} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}, {1, 1, 1}], :int64, [])
+      {:ok, mask_src} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
+      mask = GraphBLAS.Mask.new(mask_src)
+
+      {:ok, c} = SuiteSparse.matrix_mxm(a, b, :plus_times, mask: mask)
+      {:ok, coo} = SuiteSparse.matrix_to_coo(c)
+
+      for {r, cv, _v} <- coo do
+        assert {r, cv} == {0, 0}
+      end
+
+      SuiteSparse.matrix_free(a)
+      SuiteSparse.matrix_free(b)
+      SuiteSparse.matrix_free(mask_src)
+      SuiteSparse.matrix_free(c)
+    end
+
+    test "complement mask restricts output to non-mask positions" do
+      {:ok, a} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}, {1, 1, 1}], :int64, [])
+      {:ok, b} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}, {1, 1, 1}], :int64, [])
+      {:ok, mask_src} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
+      mask = GraphBLAS.Mask.complement(mask_src)
+
+      {:ok, c} = SuiteSparse.matrix_mxm(a, b, :plus_times, mask: mask)
+      {:ok, coo} = SuiteSparse.matrix_to_coo(c)
+
+      for {r, cv, _v} <- coo do
+        refute {r, cv} == {0, 0}
+      end
+
+      SuiteSparse.matrix_free(a)
+      SuiteSparse.matrix_free(b)
+      SuiteSparse.matrix_free(mask_src)
+      SuiteSparse.matrix_free(c)
+    end
+  end
+
+  describe "descriptor on mxm" do
+    test "descriptor with inp0_transpose" do
+      {:ok, a} = SuiteSparse.matrix_from_coo(2, 3, [{0, 1, 1}, {1, 2, 2}], :int64, [])
+      {:ok, b} = SuiteSparse.matrix_from_coo(2, 3, [{0, 1, 3}, {1, 2, 4}], :int64, [])
+
+      desc = GraphBLAS.Descriptor.new(inp0_transpose: :transpose)
+      {:ok, c} = SuiteSparse.matrix_mxm(a, b, :plus_times, descriptor: desc)
+      {:ok, coo} = SuiteSparse.matrix_to_coo(c)
+
+      assert coo != []
+
+      SuiteSparse.matrix_free(a)
+      SuiteSparse.matrix_free(b)
+      SuiteSparse.matrix_free(c)
+    end
+
+    test "descriptor with inp1_transpose" do
+      {:ok, a} = SuiteSparse.matrix_from_coo(2, 3, [{0, 1, 1}], :int64, [])
+      {:ok, b} = SuiteSparse.matrix_from_coo(2, 3, [{0, 1, 1}], :int64, [])
+
+      desc = GraphBLAS.Descriptor.new(inp1_transpose: :transpose)
+      {:ok, c} = SuiteSparse.matrix_mxm(a, b, :plus_times, descriptor: desc)
+      {:ok, coo} = SuiteSparse.matrix_to_coo(c)
+
+      assert is_list(coo)
+
+      SuiteSparse.matrix_free(a)
+      SuiteSparse.matrix_free(b)
+      SuiteSparse.matrix_free(c)
+    end
+  end
+
+  defp sort_coo(entries) do
+    Enum.sort_by(entries, fn {r, c, _v} -> {r, c} end)
+  end
+
+  defp sort_entries(entries) do
+    Enum.sort_by(entries, fn {i, _v} -> i end)
+  end
 end

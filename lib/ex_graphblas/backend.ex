@@ -320,4 +320,80 @@ defmodule GraphBLAS.Backend do
   """
   @callback vector_to_list(vector :: GraphBLAS.Vector.t()) ::
               {:ok, [term()]} | {:error, GraphBLAS.Error.t()}
+
+  #############################################################################
+  # Container manipulation callbacks
+  #############################################################################
+
+  @doc """
+  Sets the value at position (row, col) in the matrix.
+
+  If the position already has a stored value, it is overwritten.
+  If the position was a structural zero, it becomes a stored entry.
+  Returns `{:ok, matrix}` with the updated matrix.
+  """
+  @callback matrix_set(
+              matrix :: GraphBLAS.Matrix.t(),
+              row :: non_neg_integer(),
+              col :: non_neg_integer(),
+              value :: term()
+            ) ::
+              {:ok, GraphBLAS.Matrix.t()} | {:error, GraphBLAS.Error.t()}
+
+  @doc """
+  Extracts the value at position (row, col) from the matrix.
+
+  Returns `{:ok, value}` for stored entries.
+  For structural zeros (positions with no stored entry), returns the default
+  value for the matrix's type (0 for `:int64`, 0.0 for `:fp64`, false for `:bool`).
+  """
+  @callback matrix_extract(
+              matrix :: GraphBLAS.Matrix.t(),
+              row :: non_neg_integer(),
+              col :: non_neg_integer()
+            ) ::
+              {:ok, term()} | {:error, GraphBLAS.Error.t()}
+
+  @doc """
+  Creates a deep copy of the matrix.
+
+  The copy is independent — modifying it does not affect the original.
+  For the SuiteSparse backend, this creates a new C object with a new pointer.
+  """
+  @callback matrix_dup(matrix :: GraphBLAS.Matrix.t()) ::
+              {:ok, GraphBLAS.Matrix.t()} | {:error, GraphBLAS.Error.t()}
+
+  @doc """
+  Sets the value at the given index in the vector.
+
+  If the index already has a stored value, it is overwritten.
+  Returns `{:ok, vector}` with the updated vector.
+  """
+  @callback vector_set(
+              vector :: GraphBLAS.Vector.t(),
+              index :: non_neg_integer(),
+              value :: term()
+            ) ::
+              {:ok, GraphBLAS.Vector.t()} | {:error, GraphBLAS.Error.t()}
+
+  @doc """
+  Extracts the value at the given index from the vector.
+
+  Returns `{:ok, value}` for stored entries.
+  For structural zeros (indices with no stored entry), returns the default
+  value for the vector's type.
+  """
+  @callback vector_extract(
+              vector :: GraphBLAS.Vector.t(),
+              index :: non_neg_integer()
+            ) ::
+              {:ok, term()} | {:error, GraphBLAS.Error.t()}
+
+  @doc """
+  Creates a deep copy of the vector.
+
+  The copy is independent — modifying it does not affect the original.
+  """
+  @callback vector_dup(vector :: GraphBLAS.Vector.t()) ::
+              {:ok, GraphBLAS.Vector.t()} | {:error, GraphBLAS.Error.t()}
 end

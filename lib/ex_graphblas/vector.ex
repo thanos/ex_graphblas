@@ -160,4 +160,58 @@ defmodule GraphBLAS.Vector do
     backend = Config.resolve_backend([])
     backend.vector_to_list(vector)
   end
+
+  @doc """
+  Sets the value at the given index in the vector, overwriting any existing value.
+
+  ## Examples
+
+      iex> {:ok, v} = GraphBLAS.Vector.from_entries(3, [{0, 1}], :int64)
+      iex> {:ok, v} = GraphBLAS.Vector.set(v, 1, 5)
+      iex> {:ok, 5} = GraphBLAS.Vector.extract(v, 1)
+
+  """
+  @spec set(t(), non_neg_integer(), term(), Types.opts()) ::
+          {:ok, t()} | {:error, Error.t()}
+  def set(%__MODULE__{} = vector, index, value, opts \\ []) do
+    backend = Config.resolve_backend(opts)
+    backend.vector_set(vector, index, value)
+  end
+
+  @doc """
+  Extracts the value at the given index from the vector.
+
+  Returns the default value (0, 0.0, or false) for structural zeros.
+
+  ## Examples
+
+      iex> {:ok, v} = GraphBLAS.Vector.from_entries(3, [{0, 42}], :int64)
+      iex> {:ok, 42} = GraphBLAS.Vector.extract(v, 0)
+      iex> {:ok, 0} = GraphBLAS.Vector.extract(v, 1)
+
+  """
+  @spec extract(t(), non_neg_integer(), Types.opts()) ::
+          {:ok, term()} | {:error, Error.t()}
+  def extract(%__MODULE__{} = vector, index, opts \\ []) do
+    backend = Config.resolve_backend(opts)
+    backend.vector_extract(vector, index)
+  end
+
+  @doc """
+  Creates a deep copy of the vector.
+
+  The copy is independent — modifying it does not affect the original.
+
+  ## Examples
+
+      iex> {:ok, v} = GraphBLAS.Vector.from_entries(3, [{0, 1}], :int64)
+      iex> {:ok, copy} = GraphBLAS.Vector.dup(v)
+      iex> {:ok, 1} = GraphBLAS.Vector.extract(v, 0)
+
+  """
+  @spec dup(t(), Types.opts()) :: {:ok, t()} | {:error, Error.t()}
+  def dup(%__MODULE__{} = vector, opts \\ []) do
+    backend = Config.resolve_backend(opts)
+    backend.vector_dup(vector)
+  end
 end

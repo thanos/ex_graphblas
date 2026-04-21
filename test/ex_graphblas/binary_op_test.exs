@@ -7,10 +7,13 @@ defmodule GraphBLAS.BinaryOpTest do
     test "returns correct function for each built-in" do
       assert 3 = BinaryOp.fn_for(:plus).(1, 2)
       assert 6 = BinaryOp.fn_for(:times).(2, 3)
+      assert -1 = BinaryOp.fn_for(:minus).(2, 3)
       assert 1 = BinaryOp.fn_for(:min).(1, 5)
       assert 5 = BinaryOp.fn_for(:max).(1, 5)
       assert true = BinaryOp.fn_for(:land).(true, true)
       assert true = BinaryOp.fn_for(:lor).(true, false)
+      assert true = BinaryOp.fn_for(:lxor).(true, false)
+      assert BinaryOp.fn_for(:lxor).(true, true) == false
     end
 
     test "raises for unknown operator" do

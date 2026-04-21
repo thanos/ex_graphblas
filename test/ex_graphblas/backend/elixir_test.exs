@@ -217,4 +217,163 @@ defmodule GraphBLAS.Backend.ElixirTest do
       assert %Scalar{value: 42} = scalar
     end
   end
+
+  describe "matrix_set/4" do
+    test "sets a value at a position" do
+      {:ok, m} = RefBackend.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
+      {:ok, updated} = RefBackend.matrix_set(m, 1, 1, 5)
+      {:ok, coo} = RefBackend.matrix_to_coo(updated)
+      assert {1, 1, 5} in coo
+    end
+
+    test "overwrites existing value" do
+      {:ok, m} = RefBackend.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
+      {:ok, updated} = RefBackend.matrix_set(m, 0, 0, 42)
+      {:ok, coo} = RefBackend.matrix_to_coo(updated)
+      assert {0, 0, 42} in coo
+      refute {0, 0, 1} in coo
+    end
+
+    test "rejects out-of-bounds row" do
+      {:ok, m} = RefBackend.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
+      assert {:error, %GraphBLAS.Error{}} = RefBackend.matrix_set(m, 5, 0, 1)
+    end
+
+    test "rejects out-of-bounds col" do
+      {:ok, m} = RefBackend.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
+      assert {:error, %GraphBLAS.Error{}} = RefBackend.matrix_set(m, 0, 5, 1)
+    end
+
+    test "sets bool value" do
+      {:ok, m} = RefBackend.matrix_new(2, 2, :bool, [])
+      {:ok, updated} = RefBackend.matrix_set(m, 0, 0, true)
+      {:ok, coo} = RefBackend.matrix_to_coo(updated)
+      assert {0, 0, true} in coo
+    end
+
+    test "sets fp64 value" do
+      {:ok, m} = RefBackend.matrix_new(2, 2, :fp64, [])
+      {:ok, updated} = RefBackend.matrix_set(m, 1, 0, 3.14)
+      {:ok, coo} = RefBackend.matrix_to_coo(updated)
+      assert {1, 0, 3.14} in coo
+    end
+  end
+
+  describe "matrix_extract/3" do
+    test "extracts a stored value" do
+      {:ok, m} = RefBackend.matrix_from_coo(2, 2, [{0, 0, 42}], :int64, [])
+      assert {:ok, 42} = RefBackend.matrix_extract(m, 0, 0)
+    end
+
+    test "returns default for structural zero (int64)" do
+      {:ok, m} = RefBackend.matrix_from_coo(2, 2, [{0, 0, 42}], :int64, [])
+      assert {:ok, 0} = RefBackend.matrix_extract(m, 1, 1)
+    end
+
+    test "returns default for structural zero (bool)" do
+      {:ok, m} = RefBackend.matrix_from_coo(2, 2, [{0, 0, true}], :bool, [])
+      assert {:ok, false} = RefBackend.matrix_extract(m, 1, 1)
+    end
+
+    test "returns default for structural zero (fp64)" do
+      {:ok, m} = RefBackend.matrix_from_coo(2, 2, [{0, 0, 1.5}], :fp64, [])
+      assert {:ok, 0.0} = RefBackend.matrix_extract(m, 1, 1)
+    end
+
+    test "rejects out-of-bounds row" do
+      {:ok, m} = RefBackend.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
+      assert {:error, %GraphBLAS.Error{}} = RefBackend.matrix_extract(m, 5, 0)
+    end
+  end
+
+  describe "matrix_dup/1" do
+    test "creates an independent copy" do
+      {:ok, m} = RefBackend.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
+      {:ok, copy} = RefBackend.matrix_dup(m)
+
+      {:ok, coo_orig} = RefBackend.matrix_to_coo(m)
+      {:ok, coo_copy} = RefBackend.matrix_to_coo(copy)
+      assert coo_orig == coo_copy
+
+      {:ok, modified} = RefBackend.matrix_set(copy, 0, 0, 99)
+      {:ok, coo_modified} = RefBackend.matrix_to_coo(modified)
+      assert {0, 0, 99} in coo_modified
+
+      {:ok, coo_orig_still} = RefBackend.matrix_to_coo(m)
+      assert {0, 0, 1} in coo_orig_still
+    end
+  end
+
+  describe "vector_set/3" do
+    test "sets a value at an index" do
+      {:ok, v} = RefBackend.vector_from_entries(3, [{0, 1}], :int64, [])
+      {:ok, updated} = RefBackend.vector_set(v, 1, 5)
+      {:ok, entries} = RefBackend.vector_to_entries(updated)
+      assert {1, 5} in entries
+    end
+
+    test "overwrites existing value" do
+      {:ok, v} = RefBackend.vector_from_entries(3, [{0, 1}], :int64, [])
+      {:ok, updated} = RefBackend.vector_set(v, 0, 42)
+      {:ok, entries} = RefBackend.vector_to_entries(updated)
+      assert {0, 42} in entries
+    end
+
+    test "rejects out-of-bounds index" do
+      {:ok, v} = RefBackend.vector_from_entries(3, [{0, 1}], :int64, [])
+      assert {:error, %GraphBLAS.Error{}} = RefBackend.vector_set(v, 5, 1)
+    end
+
+    test "sets bool value" do
+      {:ok, v} = RefBackend.vector_new(3, :bool, [])
+      {:ok, updated} = RefBackend.vector_set(v, 1, true)
+      {:ok, entries} = RefBackend.vector_to_entries(updated)
+      assert {1, true} in entries
+    end
+  end
+
+  describe "vector_extract/2" do
+    test "extracts a stored value" do
+      {:ok, v} = RefBackend.vector_from_entries(3, [{0, 42}], :int64, [])
+      assert {:ok, 42} = RefBackend.vector_extract(v, 0)
+    end
+
+    test "returns default for structural zero (int64)" do
+      {:ok, v} = RefBackend.vector_from_entries(3, [{0, 42}], :int64, [])
+      assert {:ok, 0} = RefBackend.vector_extract(v, 1)
+    end
+
+    test "returns default for structural zero (fp64)" do
+      {:ok, v} = RefBackend.vector_from_entries(3, [{0, 1.5}], :fp64, [])
+      assert {:ok, 0.0} = RefBackend.vector_extract(v, 1)
+    end
+
+    test "returns default for structural zero (bool)" do
+      {:ok, v} = RefBackend.vector_from_entries(3, [{0, true}], :bool, [])
+      assert {:ok, false} = RefBackend.vector_extract(v, 1)
+    end
+
+    test "rejects out-of-bounds index" do
+      {:ok, v} = RefBackend.vector_from_entries(3, [{0, 1}], :int64, [])
+      assert {:error, %GraphBLAS.Error{}} = RefBackend.vector_extract(v, 5)
+    end
+  end
+
+  describe "vector_dup/1" do
+    test "creates an independent copy" do
+      {:ok, v} = RefBackend.vector_from_entries(3, [{0, 1}], :int64, [])
+      {:ok, copy} = RefBackend.vector_dup(v)
+
+      {:ok, entries_orig} = RefBackend.vector_to_entries(v)
+      {:ok, entries_copy} = RefBackend.vector_to_entries(copy)
+      assert entries_orig == entries_copy
+
+      {:ok, modified} = RefBackend.vector_set(copy, 0, 99)
+      {:ok, entries_modified} = RefBackend.vector_to_entries(modified)
+      assert {0, 99} in entries_modified
+
+      {:ok, entries_orig_still} = RefBackend.vector_to_entries(v)
+      assert {0, 1} in entries_orig_still
+    end
+  end
 end

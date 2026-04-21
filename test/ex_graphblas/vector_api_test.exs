@@ -78,6 +78,42 @@ defmodule GraphBLAS.VectorAPITest do
     end
   end
 
+  describe "Vector.set/4" do
+    test "sets a value at index" do
+      {:ok, v} = Vector.from_entries(3, [{0, 1}], :int64)
+      {:ok, updated} = Vector.set(v, 1, 5)
+      {:ok, 5} = Vector.extract(updated, 1)
+    end
+
+    test "overwrites existing value" do
+      {:ok, v} = Vector.from_entries(3, [{0, 1}], :int64)
+      {:ok, updated} = Vector.set(v, 0, 42)
+      {:ok, 42} = Vector.extract(updated, 0)
+    end
+  end
+
+  describe "Vector.extract/3" do
+    test "returns default for structural zero" do
+      {:ok, v} = Vector.from_entries(3, [{0, 42}], :int64)
+      {:ok, 0} = Vector.extract(v, 1)
+    end
+
+    test "returns stored value" do
+      {:ok, v} = Vector.from_entries(3, [{0, 42}], :int64)
+      {:ok, 42} = Vector.extract(v, 0)
+    end
+  end
+
+  describe "Vector.dup/3" do
+    test "creates an independent copy" do
+      {:ok, v} = Vector.from_entries(3, [{0, 1}, {1, 2}], :int64)
+      {:ok, copy} = Vector.dup(v)
+      {:ok, entries_orig} = Vector.to_entries(v)
+      {:ok, entries_copy} = Vector.to_entries(copy)
+      assert Enum.sort(entries_orig) == Enum.sort(entries_copy)
+    end
+  end
+
   describe "Vector with explicit backend option" do
     test "delegates to specified backend" do
       assert {:ok, v} = Vector.from_entries(3, [{0, 1}], :int64, backend: RefBackend)

@@ -38,7 +38,7 @@ defmodule GraphBLAS.Backend.Elixir do
 
   @behaviour GraphBLAS.Backend
 
-  alias GraphBLAS.{Error, Matrix, Monoid, Scalar, Semiring, Types, Vector}
+  alias GraphBLAS.{Descriptor, Error, Mask, Matrix, Monoid, Scalar, Semiring, Types, Vector}
 
   #############################################################################
   # Matrix callbacks
@@ -91,36 +91,42 @@ defmodule GraphBLAS.Backend.Elixir do
   end
 
   @impl GraphBLAS.Backend
-  def matrix_mxm(%Matrix{} = a, %Matrix{} = b, semiring, _opts) do
-    with {:ok, sr} <- resolve_semiring(semiring),
-         :ok <- validate_mxm_dims(a, b) do
-      {nrows_a, _ncols_a} = a.shape
-      {_nrows_b, ncols_b} = b.shape
-      multiply_fn = resolve_operator_fn(sr.multiply)
-      add_fn = resolve_operator_fn(sr.add)
+  def matrix_mxm(%Matrix{} = a, %Matrix{} = b, semiring, opts) do
+    with {:ok, sr} <- resolve_semiring(semiring) do
+      {a, b} = apply_descriptor_inputs(a, b, opts)
+      with :ok <- validate_mxm_dims(a, b) do
+        {nrows_a, _ncols_a} = a.shape
+        {_nrows_b, ncols_b} = b.shape
+        multiply_fn = resolve_operator_fn(sr.multiply)
+        add_fn = resolve_operator_fn(sr.add)
 
-      result_entries = mxm_multiply(a, b, multiply_fn, add_fn)
-      data = %{entries: result_entries, nrows: nrows_a, ncols: ncols_b, type: sr.type}
-      {:ok, %Matrix{shape: {nrows_a, ncols_b}, type: sr.type, data: data}}
+        result_entries = mxm_multiply(a, b, multiply_fn, add_fn)
+        masked = apply_matrix_mask(result_entries, opts, nrows_a, ncols_b)
+        data = %{entries: masked, nrows: nrows_a, ncols: ncols_b, type: sr.type}
+        {:ok, %Matrix{shape: {nrows_a, ncols_b}, type: sr.type, data: data}}
+      end
     end
   end
 
   @impl GraphBLAS.Backend
-  def matrix_mxv(%Matrix{} = matrix, %Vector{} = vector, semiring, _opts) do
-    with {:ok, sr} <- resolve_semiring(semiring),
-         :ok <- validate_mxv_dims(matrix, vector) do
-      multiply_fn = resolve_operator_fn(sr.multiply)
-      add_fn = resolve_operator_fn(sr.add)
+  def matrix_mxv(%Matrix{} = matrix, %Vector{} = vector, semiring, opts) do
+    with {:ok, sr} <- resolve_semiring(semiring) do
+      {matrix, _} = apply_descriptor_inputs(matrix, nil, opts)
+      with :ok <- validate_mxv_dims(matrix, vector) do
+        multiply_fn = resolve_operator_fn(sr.multiply)
+        add_fn = resolve_operator_fn(sr.add)
 
-      result_entries = mxv_multiply(matrix, vector, multiply_fn, add_fn)
-      nrows = elem(matrix.shape, 0)
-      data = %{entries: result_entries, size: nrows, type: sr.type}
-      {:ok, %Vector{size: nrows, type: sr.type, data: data}}
+        result_entries = mxv_multiply(matrix, vector, multiply_fn, add_fn)
+        nrows = elem(matrix.shape, 0)
+        masked = apply_vector_mask(result_entries, opts, nrows)
+        data = %{entries: masked, size: nrows, type: sr.type}
+        {:ok, %Vector{size: nrows, type: sr.type, data: data}}
+      end
     end
   end
 
   @impl GraphBLAS.Backend
-  def matrix_ewise_add(%Matrix{} = a, %Matrix{} = b, monoid, _opts) do
+  def matrix_ewise_add(%Matrix{} = a, %Matrix{} = b, monoid, opts) do
     with {:ok, m} <- resolve_monoid(monoid),
          :ok <- validate_same_shape(a, b) do
       op_fn = resolve_operator_fn(m.operator)
@@ -128,13 +134,16 @@ defmodule GraphBLAS.Backend.Elixir do
       combined =
         Map.merge(a.data.entries, b.data.entries, fn _key, v1, v2 -> apply_op(op_fn, v1, v2) end)
 
-      data = %{entries: combined, nrows: elem(a.shape, 0), ncols: elem(a.shape, 1), type: a.type}
+      nrows = elem(a.shape, 0)
+      ncols = elem(a.shape, 1)
+      masked = apply_matrix_mask(combined, opts, nrows, ncols)
+      data = %{entries: masked, nrows: nrows, ncols: ncols, type: a.type}
       {:ok, %Matrix{shape: a.shape, type: a.type, data: data}}
     end
   end
 
   @impl GraphBLAS.Backend
-  def matrix_ewise_mult(%Matrix{} = a, %Matrix{} = b, monoid, _opts) do
+  def matrix_ewise_mult(%Matrix{} = a, %Matrix{} = b, monoid, opts) do
     with {:ok, m} <- resolve_monoid(monoid),
          :ok <- validate_same_shape(a, b) do
       op_fn = resolve_operator_fn(m.operator)
@@ -144,19 +153,17 @@ defmodule GraphBLAS.Backend.Elixir do
           apply_op(op_fn, v1, v2)
         end)
 
-      data = %{
-        entries: intersection,
-        nrows: elem(a.shape, 0),
-        ncols: elem(a.shape, 1),
-        type: a.type
-      }
+      nrows = elem(a.shape, 0)
+      ncols = elem(a.shape, 1)
+      masked = apply_matrix_mask(intersection, opts, nrows, ncols)
+      data = %{entries: masked, nrows: nrows, ncols: ncols, type: a.type}
 
       {:ok, %Matrix{shape: a.shape, type: a.type, data: data}}
     end
   end
 
   @impl GraphBLAS.Backend
-  def matrix_reduce(%Matrix{} = matrix, monoid, _opts) do
+  def matrix_reduce(%Matrix{} = matrix, monoid, opts) do
     with {:ok, m} <- resolve_monoid(monoid) do
       op_fn = resolve_operator_fn(m.operator)
 
@@ -167,13 +174,15 @@ defmodule GraphBLAS.Backend.Elixir do
           {row, Enum.reduce(vals, fn a, b -> apply_op(op_fn, b, a) end)}
         end)
 
-      data = %{entries: result_entries, size: elem(matrix.shape, 0), type: matrix.type}
-      {:ok, %Vector{size: elem(matrix.shape, 0), type: matrix.type, data: data}}
+      nrows = elem(matrix.shape, 0)
+      masked = apply_vector_mask(result_entries, opts, nrows)
+      data = %{entries: masked, size: nrows, type: matrix.type}
+      {:ok, %Vector{size: nrows, type: matrix.type, data: data}}
     end
   end
 
   @impl GraphBLAS.Backend
-  def matrix_transpose(%Matrix{} = matrix, _opts) do
+  def matrix_transpose(%Matrix{} = matrix, opts) do
     {nrows, ncols} = matrix.shape
 
     result_entries =
@@ -181,7 +190,8 @@ defmodule GraphBLAS.Backend.Elixir do
       |> Enum.map(fn {{r, c}, v} -> {{c, r}, v} end)
       |> Map.new()
 
-    data = %{entries: result_entries, nrows: ncols, ncols: nrows, type: matrix.type}
+    masked = apply_matrix_mask(result_entries, opts, ncols, nrows)
+    data = %{entries: masked, nrows: ncols, ncols: nrows, type: matrix.type}
     {:ok, %Matrix{shape: {ncols, nrows}, type: matrix.type, data: data}}
   end
 
@@ -246,21 +256,24 @@ defmodule GraphBLAS.Backend.Elixir do
   end
 
   @impl GraphBLAS.Backend
-  def vector_vxm(%Vector{} = vector, %Matrix{} = matrix, semiring, _opts) do
-    with {:ok, sr} <- resolve_semiring(semiring),
-         :ok <- validate_vxm_dims(vector, matrix) do
-      multiply_fn = resolve_operator_fn(sr.multiply)
-      add_fn = resolve_operator_fn(sr.add)
+  def vector_vxm(%Vector{} = vector, %Matrix{} = matrix, semiring, opts) do
+    with {:ok, sr} <- resolve_semiring(semiring) do
+      {_, matrix} = apply_descriptor_inputs(nil, matrix, opts)
+      with :ok <- validate_vxm_dims(vector, matrix) do
+        multiply_fn = resolve_operator_fn(sr.multiply)
+        add_fn = resolve_operator_fn(sr.add)
 
-      result_entries = vxm_multiply(vector, matrix, multiply_fn, add_fn)
-      result_size = elem(matrix.shape, 1)
-      data_result = %{entries: result_entries, size: result_size, type: sr.type}
-      {:ok, %Vector{size: result_size, type: sr.type, data: data_result}}
+        result_entries = vxm_multiply(vector, matrix, multiply_fn, add_fn)
+        result_size = elem(matrix.shape, 1)
+        masked = apply_vector_mask(result_entries, opts, result_size)
+        data_result = %{entries: masked, size: result_size, type: sr.type}
+        {:ok, %Vector{size: result_size, type: sr.type, data: data_result}}
+      end
     end
   end
 
   @impl GraphBLAS.Backend
-  def vector_ewise_add(%Vector{} = a, %Vector{} = b, monoid, _opts) do
+  def vector_ewise_add(%Vector{} = a, %Vector{} = b, monoid, opts) do
     with {:ok, m} <- resolve_monoid(monoid),
          :ok <- validate_same_vector_size(a, b) do
       op_fn = resolve_operator_fn(m.operator)
@@ -268,13 +281,14 @@ defmodule GraphBLAS.Backend.Elixir do
       combined =
         Map.merge(a.data.entries, b.data.entries, fn _k, v1, v2 -> apply_op(op_fn, v1, v2) end)
 
-      data = %{entries: combined, size: a.size, type: a.type}
+      masked = apply_vector_mask(combined, opts, a.size)
+      data = %{entries: masked, size: a.size, type: a.type}
       {:ok, %Vector{size: a.size, type: a.type, data: data}}
     end
   end
 
   @impl GraphBLAS.Backend
-  def vector_ewise_mult(%Vector{} = a, %Vector{} = b, monoid, _opts) do
+  def vector_ewise_mult(%Vector{} = a, %Vector{} = b, monoid, opts) do
     with {:ok, m} <- resolve_monoid(monoid),
          :ok <- validate_same_vector_size(a, b) do
       op_fn = resolve_operator_fn(m.operator)
@@ -282,7 +296,8 @@ defmodule GraphBLAS.Backend.Elixir do
       intersection =
         Map.intersect(a.data.entries, b.data.entries, fn _k, v1, v2 -> apply_op(op_fn, v1, v2) end)
 
-      data = %{entries: intersection, size: a.size, type: a.type}
+      masked = apply_vector_mask(intersection, opts, a.size)
+      data = %{entries: masked, size: a.size, type: a.type}
       {:ok, %Vector{size: a.size, type: a.type, data: data}}
     end
   end
@@ -467,4 +482,158 @@ defmodule GraphBLAS.Backend.Elixir do
   defp default_value(:fp32), do: 0.0
   defp default_value(:fp64), do: 0.0
   defp default_value(_), do: 0
+
+  #############################################################################
+  # Container manipulation callbacks
+  #############################################################################
+
+  @impl GraphBLAS.Backend
+  def matrix_set(%Matrix{shape: {nrows, ncols}, type: type, data: data}, row, col, value) do
+    with :ok <- validate_index(row, nrows),
+         :ok <- validate_index(col, ncols) do
+      updated = Map.put(data.entries, {row, col}, value)
+      {:ok, %Matrix{shape: {nrows, ncols}, type: type, data: %{data | entries: updated}}}
+    end
+  end
+
+  @impl GraphBLAS.Backend
+  def matrix_extract(%Matrix{shape: {nrows, ncols}, type: type, data: data}, row, col) do
+    with :ok <- validate_index(row, nrows),
+         :ok <- validate_index(col, ncols) do
+      {:ok, Map.get(data.entries, {row, col}, default_value(type))}
+    end
+  end
+
+  @impl GraphBLAS.Backend
+  def matrix_dup(%Matrix{} = matrix) do
+    {:ok, %Matrix{matrix | data: %{matrix.data | entries: Map.new(matrix.data.entries)}}}
+  end
+
+  @impl GraphBLAS.Backend
+  def vector_set(%Vector{size: size, type: type, data: data}, index, value) do
+    with :ok <- validate_index(index, size) do
+      updated = Map.put(data.entries, index, value)
+      {:ok, %Vector{size: size, type: type, data: %{data | entries: updated}}}
+    end
+  end
+
+  @impl GraphBLAS.Backend
+  def vector_extract(%Vector{size: size, type: type, data: data}, index) do
+    with :ok <- validate_index(index, size) do
+      {:ok, Map.get(data.entries, index, default_value(type))}
+    end
+  end
+
+  @impl GraphBLAS.Backend
+  def vector_dup(%Vector{} = vector) do
+    {:ok, %Vector{vector | data: %{vector.data | entries: Map.new(vector.data.entries)}}}
+  end
+
+  #############################################################################
+  # Mask and descriptor helpers
+  #############################################################################
+
+  defp validate_index(idx, max) when is_integer(idx) and idx >= 0 and idx < max, do: :ok
+  defp validate_index(idx, max), do: Error.error({:index_out_of_bounds, {idx, max}})
+
+  defp apply_matrix_mask(entries, opts, _nrows, _ncols) do
+    case Keyword.get(opts, :mask) do
+      nil ->
+        entries
+
+      %Mask{source: %Matrix{data: mask_data}, complement: complement?} ->
+        mask_positions = get_matrix_mask_positions(mask_data, get_mask_mode(opts))
+
+        entries
+        |> Enum.filter(&in_mask_positions?(&1, mask_positions, complement?))
+        |> Map.new()
+
+      %Mask{source: %Vector{}} ->
+        Error.error({:mask_type_mismatch, :vector, :matrix})
+
+      _ ->
+        entries
+    end
+  end
+
+  defp apply_vector_mask(entries, opts, _size) do
+    case Keyword.get(opts, :mask) do
+      nil ->
+        entries
+
+      %Mask{source: %Vector{data: mask_data}, complement: complement?} ->
+        mask_positions = get_vector_mask_positions(mask_data, get_mask_mode(opts))
+
+        entries
+        |> Enum.filter(&in_mask_positions?(&1, mask_positions, complement?))
+        |> Map.new()
+
+      %Mask{source: %Matrix{}} ->
+        Error.error({:mask_type_mismatch, :matrix, :vector})
+
+      _ ->
+        entries
+    end
+  end
+
+  defp in_mask_positions?({{r, c}, _v}, mask_positions, complement?) do
+    in_mask = MapSet.member?(mask_positions, {r, c})
+    if complement?, do: not in_mask, else: in_mask
+  end
+
+  defp in_mask_positions?({idx, _v}, mask_positions, complement?) do
+    in_mask = MapSet.member?(mask_positions, idx)
+    if complement?, do: not in_mask, else: in_mask
+  end
+
+  defp get_mask_mode(opts) do
+    case Keyword.get(opts, :descriptor) do
+      %Descriptor{mask: :value} -> :value
+      _ -> :structural
+    end
+  end
+
+  defp get_matrix_mask_positions(mask_data, :structural) do
+    mask_data.entries |> Map.keys() |> MapSet.new()
+  end
+
+  defp get_matrix_mask_positions(mask_data, :value) do
+    mask_data.entries
+    |> Enum.filter(fn {_k, v} -> v != false and v != 0 and v != 0.0 end)
+    |> Enum.map(fn {k, _v} -> k end)
+    |> MapSet.new()
+  end
+
+  defp get_vector_mask_positions(mask_data, :structural) do
+    mask_data.entries |> Map.keys() |> MapSet.new()
+  end
+
+  defp get_vector_mask_positions(mask_data, :value) do
+    mask_data.entries
+    |> Enum.filter(fn {_k, v} -> v != false and v != 0 and v != 0.0 end)
+    |> Enum.map(fn {k, _v} -> k end)
+    |> MapSet.new()
+  end
+
+  defp apply_descriptor_inputs(a, b, opts) do
+    desc = Keyword.get(opts, :descriptor)
+
+    a =
+      if is_struct(desc, Descriptor) and desc.inp0_transpose == :transpose and a != nil do
+        {:ok, t} = matrix_transpose(a, [])
+        t
+      else
+        a
+      end
+
+    b =
+      if is_struct(desc, Descriptor) and desc.inp1_transpose == :transpose and b != nil do
+        {:ok, t} = matrix_transpose(b, [])
+        t
+      else
+        b
+      end
+
+    {a, b}
+  end
 end

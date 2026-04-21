@@ -66,7 +66,7 @@ defmodule GraphBLAS.BinaryOp do
   def fn_for(:max), do: &max/2
   def fn_for(:land), do: &Kernel.and/2
   def fn_for(:lor), do: &Kernel.or/2
-  def fn_for(:lxor), do: &Bitwise.bxor/2
+  def fn_for(:lxor), do: fn a, b -> a != b end
   def fn_for(name), do: raise(ArgumentError, "Unknown binary operator: #{inspect(name)}")
 
   @doc """

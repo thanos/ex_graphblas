@@ -59,8 +59,17 @@ defmodule GraphBLAS.TypesTest do
       assert 4 = Types.type_size(:int32)
       assert 8 = Types.type_size(:int64)
       assert 1 = Types.type_size(:uint8)
+      assert 2 = Types.type_size(:uint16)
+      assert 4 = Types.type_size(:uint32)
+      assert 8 = Types.type_size(:uint64)
       assert 4 = Types.type_size(:fp32)
       assert 8 = Types.type_size(:fp64)
+    end
+  end
+
+  describe "default_bool_type/0" do
+    test "returns :bool" do
+      assert :bool = Types.default_bool_type()
     end
   end
 

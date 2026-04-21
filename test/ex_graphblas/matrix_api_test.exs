@@ -100,4 +100,29 @@ defmodule GraphBLAS.MatrixAPITest do
       assert {:ok, {2, 2}} = Matrix.shape(m)
     end
   end
+
+  describe "Matrix.set/5" do
+    test "sets a value at position" do
+      {:ok, m} = Matrix.from_coo(2, 2, [{0, 0, 1}], :int64)
+      {:ok, updated} = Matrix.set(m, 1, 1, 5)
+      {:ok, 5} = Matrix.extract(updated, 1, 1)
+    end
+  end
+
+  describe "Matrix.extract/4" do
+    test "returns default for structural zero" do
+      {:ok, m} = Matrix.from_coo(2, 2, [{0, 0, 42}], :int64)
+      {:ok, 0} = Matrix.extract(m, 1, 1)
+    end
+  end
+
+  describe "Matrix.dup/3" do
+    test "creates an independent copy" do
+      {:ok, m} = Matrix.from_coo(2, 2, [{0, 0, 1}], :int64)
+      {:ok, copy} = Matrix.dup(m)
+      {:ok, coo_orig} = Matrix.to_coo(m)
+      {:ok, coo_copy} = Matrix.to_coo(copy)
+      assert coo_orig == coo_copy
+    end
+  end
 end

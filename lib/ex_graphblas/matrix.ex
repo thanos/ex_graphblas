@@ -265,4 +265,58 @@ defmodule GraphBLAS.Matrix do
     backend = Config.resolve_backend([])
     backend.matrix_to_dense(matrix)
   end
+
+  @doc """
+  Sets the value at position (row, col) in the matrix, overwriting any existing value.
+
+  ## Examples
+
+      iex> {:ok, m} = GraphBLAS.Matrix.from_coo(2, 2, [{0, 0, 1}], :int64)
+      iex> {:ok, m} = GraphBLAS.Matrix.set(m, 1, 1, 5)
+      iex> {:ok, 5} = GraphBLAS.Matrix.extract(m, 1, 1)
+
+  """
+  @spec set(t(), non_neg_integer(), non_neg_integer(), term(), Types.opts()) ::
+          {:ok, t()} | {:error, Error.t()}
+  def set(%__MODULE__{} = matrix, row, col, value, opts \\ []) do
+    backend = Config.resolve_backend(opts)
+    backend.matrix_set(matrix, row, col, value)
+  end
+
+  @doc """
+  Extracts the value at position (row, col) from the matrix.
+
+  Returns the default value (0, 0.0, or false) for structural zeros.
+
+  ## Examples
+
+      iex> {:ok, m} = GraphBLAS.Matrix.from_coo(2, 2, [{0, 0, 42}], :int64)
+      iex> {:ok, 42} = GraphBLAS.Matrix.extract(m, 0, 0)
+      iex> {:ok, 0} = GraphBLAS.Matrix.extract(m, 1, 1)
+
+  """
+  @spec extract(t(), non_neg_integer(), non_neg_integer(), Types.opts()) ::
+          {:ok, term()} | {:error, Error.t()}
+  def extract(%__MODULE__{} = matrix, row, col, opts \\ []) do
+    backend = Config.resolve_backend(opts)
+    backend.matrix_extract(matrix, row, col)
+  end
+
+  @doc """
+  Creates a deep copy of the matrix.
+
+  The copy is independent — modifying it does not affect the original.
+
+  ## Examples
+
+      iex> {:ok, m} = GraphBLAS.Matrix.from_coo(2, 2, [{0, 0, 1}], :int64)
+      iex> {:ok, copy} = GraphBLAS.Matrix.dup(m)
+      iex> {:ok, 1} = GraphBLAS.Matrix.extract(m, 0, 0)
+
+  """
+  @spec dup(t(), Types.opts()) :: {:ok, t()} | {:error, Error.t()}
+  def dup(%__MODULE__{} = matrix, opts \\ []) do
+    backend = Config.resolve_backend(opts)
+    backend.matrix_dup(matrix)
+  end
 end

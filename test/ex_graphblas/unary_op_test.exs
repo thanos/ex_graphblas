@@ -12,6 +12,10 @@ defmodule GraphBLAS.UnaryOpTest do
       assert -5 = UnaryOp.fn_for(:negate_int).(5)
     end
 
+    test "returns correct function for negate_fp" do
+      assert -2.5 = UnaryOp.fn_for(:negate_fp).(2.5)
+    end
+
     test "returns correct function for abs_val" do
       assert 5 = UnaryOp.fn_for(:abs_val).(-5)
     end

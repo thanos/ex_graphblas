@@ -501,4 +501,265 @@ defmodule GraphBLAS.Backend.ParityTest do
       assert_in_delta v1, v2, 0.001
     end)
   end
+
+  # --- Phase 5: set/extract/dup parity ---
+
+  describe "matrix_set / matrix_extract parity" do
+    test "set and extract int64 values match between backends" do
+      {:ok, ref} = RefBackend.matrix_from_coo(3, 3, [{0, 0, 1}, {1, 1, 2}], :int64, [])
+      {:ok, ss} = SuiteSparse.matrix_from_coo(3, 3, [{0, 0, 1}, {1, 1, 2}], :int64, [])
+
+      {:ok, ref_set} = RefBackend.matrix_set(ref, 2, 2, 42)
+      {:ok, ss_set} = SuiteSparse.matrix_set(ss, 2, 2, 42)
+
+      {:ok, ref_val} = RefBackend.matrix_extract(ref_set, 2, 2)
+      {:ok, ss_val} = SuiteSparse.matrix_extract(ss_set, 2, 2)
+      assert ref_val == ss_val
+
+      {:ok, ref_default} = RefBackend.matrix_extract(ref_set, 0, 1)
+      {:ok, ss_default} = SuiteSparse.matrix_extract(ss_set, 0, 1)
+      assert ref_default == ss_default
+
+      SuiteSparse.matrix_free(ss)
+      SuiteSparse.matrix_free(ss_set)
+    end
+
+    test "set and extract fp64 values match between backends" do
+      {:ok, ref} = RefBackend.matrix_from_coo(2, 2, [{0, 0, 1.5}], :fp64, [])
+      {:ok, ss} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1.5}], :fp64, [])
+
+      {:ok, ref_set} = RefBackend.matrix_set(ref, 1, 1, 3.14)
+      {:ok, ss_set} = SuiteSparse.matrix_set(ss, 1, 1, 3.14)
+
+      {:ok, ref_val} = RefBackend.matrix_extract(ref_set, 1, 1)
+      {:ok, ss_val} = SuiteSparse.matrix_extract(ss_set, 1, 1)
+      assert_in_delta ref_val, ss_val, 0.001
+
+      SuiteSparse.matrix_free(ss)
+      SuiteSparse.matrix_free(ss_set)
+    end
+
+    test "set and extract bool values match between backends" do
+      {:ok, ref} = RefBackend.matrix_from_coo(2, 2, [], :bool, [])
+      {:ok, ss} = SuiteSparse.matrix_from_coo(2, 2, [], :bool, [])
+
+      {:ok, ref_set} = RefBackend.matrix_set(ref, 0, 1, true)
+      {:ok, ss_set} = SuiteSparse.matrix_set(ss, 0, 1, true)
+
+      {:ok, ref_val} = RefBackend.matrix_extract(ref_set, 0, 1)
+      {:ok, ss_val} = SuiteSparse.matrix_extract(ss_set, 0, 1)
+      assert ref_val == ss_val
+
+      {:ok, ref_default} = RefBackend.matrix_extract(ref_set, 1, 0)
+      {:ok, ss_default} = SuiteSparse.matrix_extract(ss_set, 1, 0)
+      assert ref_default == ss_default
+
+      SuiteSparse.matrix_free(ss)
+      SuiteSparse.matrix_free(ss_set)
+    end
+  end
+
+  describe "matrix_dup parity" do
+    test "dup produces same entries as original" do
+      entries = [{0, 0, 5}, {0, 1, 3}, {1, 1, 7}]
+      {:ok, ref} = RefBackend.matrix_from_coo(2, 2, entries, :int64, [])
+      {:ok, ss} = SuiteSparse.matrix_from_coo(2, 2, entries, :int64, [])
+
+      {:ok, ref_dup} = RefBackend.matrix_dup(ref)
+      {:ok, ss_dup} = SuiteSparse.matrix_dup(ss)
+
+      {:ok, ref_coo} = RefBackend.matrix_to_coo(ref_dup)
+      {:ok, ss_coo} = SuiteSparse.matrix_to_coo(ss_dup)
+
+      assert sort_coo(ref_coo) == sort_coo(ss_coo)
+
+      SuiteSparse.matrix_free(ss)
+      SuiteSparse.matrix_free(ss_dup)
+    end
+  end
+
+  describe "vector_set / vector_extract parity" do
+    test "set and extract int64 values match between backends" do
+      {:ok, ref} = RefBackend.vector_from_entries(3, [{0, 1}], :int64, [])
+      {:ok, ss} = SuiteSparse.vector_from_entries(3, [{0, 1}], :int64, [])
+
+      {:ok, ref_set} = RefBackend.vector_set(ref, 2, 42)
+      {:ok, ss_set} = SuiteSparse.vector_set(ss, 2, 42)
+
+      {:ok, ref_val} = RefBackend.vector_extract(ref_set, 2)
+      {:ok, ss_val} = SuiteSparse.vector_extract(ss_set, 2)
+      assert ref_val == ss_val
+
+      {:ok, ref_default} = RefBackend.vector_extract(ref_set, 1)
+      {:ok, ss_default} = SuiteSparse.vector_extract(ss_set, 1)
+      assert ref_default == ss_default
+
+      SuiteSparse.vector_free(ss)
+      SuiteSparse.vector_free(ss_set)
+    end
+
+    test "set and extract fp64 values match between backends" do
+      {:ok, ref} = RefBackend.vector_from_entries(3, [{0, 1.5}], :fp64, [])
+      {:ok, ss} = SuiteSparse.vector_from_entries(3, [{0, 1.5}], :fp64, [])
+
+      {:ok, ref_set} = RefBackend.vector_set(ref, 1, 2.5)
+      {:ok, ss_set} = SuiteSparse.vector_set(ss, 1, 2.5)
+
+      {:ok, ref_val} = RefBackend.vector_extract(ref_set, 1)
+      {:ok, ss_val} = SuiteSparse.vector_extract(ss_set, 1)
+      assert_in_delta ref_val, ss_val, 0.001
+
+      SuiteSparse.vector_free(ss)
+      SuiteSparse.vector_free(ss_set)
+    end
+
+    test "set and extract bool values match between backends" do
+      {:ok, ref} = RefBackend.vector_from_entries(3, [], :bool, [])
+      {:ok, ss} = SuiteSparse.vector_from_entries(3, [], :bool, [])
+
+      {:ok, ref_set} = RefBackend.vector_set(ref, 0, true)
+      {:ok, ss_set} = SuiteSparse.vector_set(ss, 0, true)
+
+      {:ok, ref_val} = RefBackend.vector_extract(ref_set, 0)
+      {:ok, ss_val} = SuiteSparse.vector_extract(ss_set, 0)
+      assert ref_val == ss_val
+
+      SuiteSparse.vector_free(ss)
+      SuiteSparse.vector_free(ss_set)
+    end
+  end
+
+  describe "vector_dup parity" do
+    test "dup produces same entries as original" do
+      entries = [{0, 5}, {2, 3}]
+      {:ok, ref} = RefBackend.vector_from_entries(4, entries, :int64, [])
+      {:ok, ss} = SuiteSparse.vector_from_entries(4, entries, :int64, [])
+
+      {:ok, ref_dup} = RefBackend.vector_dup(ref)
+      {:ok, ss_dup} = SuiteSparse.vector_dup(ss)
+
+      {:ok, ref_e} = RefBackend.vector_to_entries(ref_dup)
+      {:ok, ss_e} = SuiteSparse.vector_to_entries(ss_dup)
+
+      assert sort_entries(ref_e) == sort_entries(ss_e)
+
+      SuiteSparse.vector_free(ss)
+      SuiteSparse.vector_free(ss_dup)
+    end
+  end
+
+  # --- Phase 5: mask/descriptor parity ---
+
+  describe "mask parity on matrix_mxm" do
+    test "structural mask produces same results on both backends" do
+      entries_a = [{0, 0, 1}, {0, 1, 2}, {1, 0, 3}, {1, 1, 4}]
+      entries_b = [{0, 0, 1}, {1, 1, 1}]
+      mask_entries = [{0, 0, 1}]
+
+      {:ok, ref_a} = RefBackend.matrix_from_coo(2, 2, entries_a, :int64, [])
+      {:ok, ref_b} = RefBackend.matrix_from_coo(2, 2, entries_b, :int64, [])
+      {:ok, ref_mask_src} = RefBackend.matrix_from_coo(2, 2, mask_entries, :int64, [])
+      ref_mask = GraphBLAS.Mask.new(ref_mask_src)
+
+      {:ok, ss_a} = SuiteSparse.matrix_from_coo(2, 2, entries_a, :int64, [])
+      {:ok, ss_b} = SuiteSparse.matrix_from_coo(2, 2, entries_b, :int64, [])
+      {:ok, ss_mask_src} = SuiteSparse.matrix_from_coo(2, 2, mask_entries, :int64, [])
+      ss_mask = GraphBLAS.Mask.new(ss_mask_src)
+
+      {:ok, ref_c} = RefBackend.matrix_mxm(ref_a, ref_b, :plus_times, mask: ref_mask)
+      {:ok, ss_c} = SuiteSparse.matrix_mxm(ss_a, ss_b, :plus_times, mask: ss_mask)
+
+      {:ok, ref_coo} = RefBackend.matrix_to_coo(ref_c)
+      {:ok, ss_coo} = SuiteSparse.matrix_to_coo(ss_c)
+
+      assert sort_coo(ref_coo) == sort_coo(ss_coo)
+
+      SuiteSparse.matrix_free(ss_a)
+      SuiteSparse.matrix_free(ss_b)
+      SuiteSparse.matrix_free(ss_mask_src)
+      SuiteSparse.matrix_free(ss_c)
+    end
+
+    test "complement mask produces same results on both backends" do
+      entries_a = [{0, 0, 1}, {1, 1, 1}]
+      entries_b = [{0, 0, 1}, {1, 1, 1}]
+      mask_entries = [{0, 0, 1}]
+
+      {:ok, ref_a} = RefBackend.matrix_from_coo(2, 2, entries_a, :int64, [])
+      {:ok, ref_b} = RefBackend.matrix_from_coo(2, 2, entries_b, :int64, [])
+      {:ok, ref_mask_src} = RefBackend.matrix_from_coo(2, 2, mask_entries, :int64, [])
+      ref_mask = GraphBLAS.Mask.complement(ref_mask_src)
+
+      {:ok, ss_a} = SuiteSparse.matrix_from_coo(2, 2, entries_a, :int64, [])
+      {:ok, ss_b} = SuiteSparse.matrix_from_coo(2, 2, entries_b, :int64, [])
+      {:ok, ss_mask_src} = SuiteSparse.matrix_from_coo(2, 2, mask_entries, :int64, [])
+      ss_mask = GraphBLAS.Mask.complement(ss_mask_src)
+
+      {:ok, ref_c} = RefBackend.matrix_mxm(ref_a, ref_b, :plus_times, mask: ref_mask)
+      {:ok, ss_c} = SuiteSparse.matrix_mxm(ss_a, ss_b, :plus_times, mask: ss_mask)
+
+      {:ok, ref_coo} = RefBackend.matrix_to_coo(ref_c)
+      {:ok, ss_coo} = SuiteSparse.matrix_to_coo(ss_c)
+
+      assert sort_coo(ref_coo) == sort_coo(ss_coo)
+
+      SuiteSparse.matrix_free(ss_a)
+      SuiteSparse.matrix_free(ss_b)
+      SuiteSparse.matrix_free(ss_mask_src)
+      SuiteSparse.matrix_free(ss_c)
+    end
+  end
+
+  describe "mask parity on vector_ewise_add" do
+    test "structural vector mask produces same results on both backends" do
+      {:ok, ref_a} = RefBackend.vector_from_entries(3, [{0, 1}, {1, 2}, {2, 3}], :int64, [])
+      {:ok, ref_b} = RefBackend.vector_from_entries(3, [{0, 10}, {1, 20}], :int64, [])
+      {:ok, ref_mask_src} = RefBackend.vector_from_entries(3, [{0, 1}], :int64, [])
+      ref_mask = GraphBLAS.Mask.new(ref_mask_src)
+
+      {:ok, ss_a} = SuiteSparse.vector_from_entries(3, [{0, 1}, {1, 2}, {2, 3}], :int64, [])
+      {:ok, ss_b} = SuiteSparse.vector_from_entries(3, [{0, 10}, {1, 20}], :int64, [])
+      {:ok, ss_mask_src} = SuiteSparse.vector_from_entries(3, [{0, 1}], :int64, [])
+      ss_mask = GraphBLAS.Mask.new(ss_mask_src)
+
+      {:ok, ref_c} = RefBackend.vector_ewise_add(ref_a, ref_b, :plus, mask: ref_mask)
+      {:ok, ss_c} = SuiteSparse.vector_ewise_add(ss_a, ss_b, :plus, mask: ss_mask)
+
+      {:ok, ref_e} = RefBackend.vector_to_entries(ref_c)
+      {:ok, ss_e} = SuiteSparse.vector_to_entries(ss_c)
+
+      assert sort_entries(ref_e) == sort_entries(ss_e)
+
+      SuiteSparse.vector_free(ss_a)
+      SuiteSparse.vector_free(ss_b)
+      SuiteSparse.vector_free(ss_mask_src)
+      SuiteSparse.vector_free(ss_c)
+    end
+  end
+
+  describe "descriptor parity on matrix_mxm — inp0_transpose" do
+    test "inp0_transpose produces same results on both backends" do
+      entries_a = [{0, 1, 1}, {1, 2, 2}]
+      entries_b = [{0, 1, 3}, {1, 2, 4}]
+
+      desc = GraphBLAS.Descriptor.new(inp0_transpose: :transpose)
+
+      {:ok, ref_a} = RefBackend.matrix_from_coo(2, 3, entries_a, :int64, [])
+      {:ok, ref_b} = RefBackend.matrix_from_coo(2, 3, entries_b, :int64, [])
+      {:ok, ss_a} = SuiteSparse.matrix_from_coo(2, 3, entries_a, :int64, [])
+      {:ok, ss_b} = SuiteSparse.matrix_from_coo(2, 3, entries_b, :int64, [])
+
+      {:ok, ref_c} = RefBackend.matrix_mxm(ref_a, ref_b, :plus_times, descriptor: desc)
+      {:ok, ss_c} = SuiteSparse.matrix_mxm(ss_a, ss_b, :plus_times, descriptor: desc)
+
+      {:ok, ref_coo} = RefBackend.matrix_to_coo(ref_c)
+      {:ok, ss_coo} = SuiteSparse.matrix_to_coo(ss_c)
+
+      assert sort_coo(ref_coo) == sort_coo(ss_coo)
+
+      SuiteSparse.matrix_free(ss_a)
+      SuiteSparse.matrix_free(ss_b)
+      SuiteSparse.matrix_free(ss_c)
+    end
+  end
 end
