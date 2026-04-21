@@ -209,7 +209,8 @@ defmodule GraphBLAS.Algorithm do
 
     with {:ok, lint} <- ok(r_lint),
          {:ok, aint} <- ok(r_aint),
-         {:ok, cmat} <- ok(Matrix.mxm(lint, aint, :plus_times, mask: Mask.new(lint), backend: backend)),
+         {:ok, cmat} <-
+           ok(Matrix.mxm(lint, aint, :plus_times, mask: Mask.new(lint), backend: backend)),
          {:ok, vvec} <- ok(Matrix.reduce(cmat, :plus, backend: backend)),
          {:ok, sval} <- ok(Vector.reduce(vvec, :plus, backend: backend)) do
       count = Scalar.value(sval)
@@ -332,6 +333,7 @@ defmodule GraphBLAS.Algorithm do
          r_entries <- for(i <- 0..(n - 1), do: {i, r_init}),
          {:ok, r} <- Vector.from_entries(n, r_entries, :fp64, backend: backend) do
       maybe_free(adj_int, backend)
+
       pagerank_loop(at, out_deg, recip, r, %{
         n: n,
         damping: damping,
@@ -370,6 +372,7 @@ defmodule GraphBLAS.Algorithm do
       else
         maybe_free(r_scaled, backend)
         maybe_free(r, backend)
+
         pagerank_loop(at, out_deg, recip, r_new, %{
           n: n,
           damping: damping,
