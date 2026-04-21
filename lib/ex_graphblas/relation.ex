@@ -21,6 +21,8 @@ defmodule GraphBLAS.Relation do
   `:plus_times` for path counting, `:plus_min` for shortest path.
   """
 
+  alias GraphBLAS.Backend.Elixir, as: RefBackend
+  alias GraphBLAS.Backend.SuiteSparse
   alias GraphBLAS.{Config, Error, Matrix}
 
   @type t :: %__MODULE__{
@@ -198,19 +200,18 @@ defmodule GraphBLAS.Relation do
     backend = Config.resolve_backend(opts)
 
     with {:ok, a_mx} <- maybe_to_int64(a, needs_int, backend),
-         {:ok, b_mx} <- maybe_to_int64(b, needs_int, backend) do
-      case ok(Matrix.mxm(a_mx, b_mx, semiring, backend: backend)) do
-        {:ok, result} ->
-          maybe_free_intermediate(a, backend)
-          maybe_free_intermediate(b, backend)
-          if a_mx != a, do: maybe_free_intermediate(a_mx, backend)
-          if b_mx != b, do: maybe_free_intermediate(b_mx, backend)
-          traverse_chain([result | rest], semiring, opts, needs_int)
-
-        {:error, _} = err ->
-          err
-      end
+         {:ok, b_mx} <- maybe_to_int64(b, needs_int, backend),
+         {:ok, result} <- ok(Matrix.mxm(a_mx, b_mx, semiring, backend: backend)) do
+      cleanup_intermediates(a, b, a_mx, b_mx, backend)
+      traverse_chain([result | rest], semiring, opts, needs_int)
     end
+  end
+
+  defp cleanup_intermediates(a, b, a_mx, b_mx, backend) do
+    maybe_free_intermediate(a, backend)
+    maybe_free_intermediate(b, backend)
+    if a_mx != a, do: maybe_free_intermediate(a_mx, backend)
+    if b_mx != b, do: maybe_free_intermediate(b_mx, backend)
   end
 
   defp maybe_to_int64(%Matrix{type: :bool} = m, true, backend) do
@@ -267,10 +268,10 @@ defmodule GraphBLAS.Relation do
   defp ok({:error, _} = err), do: err
   defp ok(:ok), do: :ok
 
-  defp maybe_free_intermediate(_mat, GraphBLAS.Backend.Elixir), do: :ok
+  defp maybe_free_intermediate(_mat, RefBackend), do: :ok
 
-  defp maybe_free_intermediate(%Matrix{} = m, GraphBLAS.Backend.SuiteSparse) do
-    GraphBLAS.Backend.SuiteSparse.matrix_free(m)
+  defp maybe_free_intermediate(%Matrix{} = m, SuiteSparse) do
+    SuiteSparse.matrix_free(m)
   end
 
   defp maybe_free_intermediate(_, _), do: :ok

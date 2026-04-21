@@ -1,7 +1,7 @@
 defmodule GraphBLAS.RelationTest do
   use ExUnit.Case, async: true
 
-  alias GraphBLAS.{Relation, Matrix}
+  alias GraphBLAS.{Matrix, Relation}
 
   describe "new/1" do
     test "creates empty relation with size" do
@@ -73,7 +73,7 @@ defmodule GraphBLAS.RelationTest do
     test "2-hop traversal with lor_land finds existence", %{rel: rel} do
       {:ok, result} = Relation.traverse(rel, [:follows, :likes], :lor_land)
       {:ok, coo} = Matrix.to_coo(result)
-      positions = Enum.map(coo, fn {r, c, _} -> {r, c} end) |> Enum.sort()
+      positions = Enum.sort(Enum.map(coo, fn {r, c, _} -> {r, c} end))
       # 0→follows→1→likes→2 and 1→follows→2→likes→? (no)
       assert {0, 2} in positions
     end
@@ -115,7 +115,7 @@ defmodule GraphBLAS.RelationTest do
       assert match?({:ok, _}, closure_result)
       {:ok, result} = closure_result
       {:ok, coo} = Matrix.to_coo(result)
-      positions = Enum.map(coo, fn {r, c, _} -> {r, c} end) |> MapSet.new()
+      positions = MapSet.new(Enum.map(coo, fn {r, c, _} -> {r, c} end))
       # Direct: 0→1, 1→2, 2→3
       # 2-hop: 0→2, 1→3
       # 3-hop: 0→3

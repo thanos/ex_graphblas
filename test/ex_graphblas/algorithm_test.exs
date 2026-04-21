@@ -1,7 +1,7 @@
 defmodule GraphBLAS.AlgorithmTest do
   use ExUnit.Case, async: true
 
-  alias GraphBLAS.{Algorithm, Matrix, Vector, Mask}
+  alias GraphBLAS.{Algorithm, Mask, Matrix, Vector}
 
   describe "bfs_reach/3" do
     test "reaches all vertices on a chain graph" do
@@ -10,7 +10,7 @@ defmodule GraphBLAS.AlgorithmTest do
 
       {:ok, visited} = Algorithm.bfs_reach(adj, 0)
       {:ok, entries} = Vector.to_entries(visited)
-      visited_indices = Enum.map(entries, fn {i, _} -> i end) |> Enum.sort()
+      visited_indices = Enum.sort(Enum.map(entries, fn {i, _} -> i end))
       assert visited_indices == [0, 1, 2, 3, 4]
     end
 
@@ -18,7 +18,7 @@ defmodule GraphBLAS.AlgorithmTest do
       {:ok, adj} = Matrix.from_coo(3, 3, [{0, 1, true}, {0, 2, true}], :bool)
       {:ok, visited} = Algorithm.bfs_reach(adj, 1)
       {:ok, entries} = Vector.to_entries(visited)
-      visited_indices = Enum.map(entries, fn {i, _} -> i end) |> Enum.sort()
+      visited_indices = Enum.sort(Enum.map(entries, fn {i, _} -> i end))
       assert visited_indices == [1]
     end
 
@@ -33,7 +33,7 @@ defmodule GraphBLAS.AlgorithmTest do
 
       {:ok, visited} = Algorithm.bfs_reach(adj, 0)
       {:ok, entries} = Vector.to_entries(visited)
-      visited_indices = Enum.map(entries, fn {i, _} -> i end) |> Enum.sort()
+      visited_indices = Enum.sort(Enum.map(entries, fn {i, _} -> i end))
       assert visited_indices == [0, 1]
     end
 
@@ -95,7 +95,7 @@ defmodule GraphBLAS.AlgorithmTest do
       {:ok, levels} = Algorithm.bfs_levels(adj, 0)
       {:ok, entries} = Vector.to_entries(levels)
       level_map = Map.new(entries)
-      indices = Map.keys(level_map) |> Enum.sort()
+      indices = Enum.sort(Map.keys(level_map))
       assert indices == [0, 1]
     end
   end
@@ -135,14 +135,19 @@ defmodule GraphBLAS.AlgorithmTest do
 
     test "handles varying edge weights" do
       {:ok, adj} =
-        Matrix.from_coo(5, 5, [
-          {0, 1, 2.0},
-          {0, 2, 10.0},
-          {1, 2, 3.0},
-          {1, 3, 7.0},
-          {2, 3, 1.0},
-          {3, 4, 2.0}
-        ], :fp64)
+        Matrix.from_coo(
+          5,
+          5,
+          [
+            {0, 1, 2.0},
+            {0, 2, 10.0},
+            {1, 2, 3.0},
+            {1, 3, 7.0},
+            {2, 3, 1.0},
+            {3, 4, 2.0}
+          ],
+          :fp64
+        )
 
       {:ok, dist} = Algorithm.sssp(adj, 0)
       {:ok, entries} = Vector.to_entries(dist)
@@ -203,14 +208,19 @@ defmodule GraphBLAS.AlgorithmTest do
   describe "pagerank/2" do
     test "computes pagerank on a simple graph" do
       {:ok, adj} =
-        Matrix.from_coo(4, 4, [
-          {0, 1, true},
-          {0, 2, true},
-          {1, 2, true},
-          {2, 0, true},
-          {2, 3, true},
-          {3, 2, true}
-        ], :bool)
+        Matrix.from_coo(
+          4,
+          4,
+          [
+            {0, 1, true},
+            {0, 2, true},
+            {1, 2, true},
+            {2, 0, true},
+            {2, 3, true},
+            {3, 2, true}
+          ],
+          :bool
+        )
 
       {:ok, ranks} = Algorithm.pagerank(adj, max_iter: 50)
       {:ok, entries} = Vector.to_entries(ranks)
@@ -250,7 +260,7 @@ defmodule GraphBLAS.AlgorithmTest do
       {:ok, comp} = Algorithm.connected_components(adj)
       {:ok, entries} = Vector.to_entries(comp)
       comp_map = Map.new(entries)
-      ids = Map.values(comp_map) |> Enum.uniq()
+      ids = Enum.uniq(Map.values(comp_map))
       assert length(ids) == 1
     end
 
@@ -266,7 +276,7 @@ defmodule GraphBLAS.AlgorithmTest do
       {:ok, comp} = Algorithm.connected_components(adj)
       {:ok, entries} = Vector.to_entries(comp)
       comp_map = Map.new(entries)
-      ids = Map.values(comp_map) |> Enum.uniq()
+      ids = Enum.uniq(Map.values(comp_map))
       assert length(ids) == 4
     end
 
@@ -310,10 +320,9 @@ defmodule GraphBLAS.AlgorithmTest do
         Algorithm.fixed_point(
           adj,
           fn p ->
-            with {:ok, new_paths} <- Matrix.mxm(p, adj, :lor_land),
-                 {:ok, result} <- Matrix.ewise_add(adj, new_paths, :lor) do
-              {:ok, result}
-            end
+            {:ok, new_paths} = Matrix.mxm(p, adj, :lor_land)
+            {:ok, result} = Matrix.ewise_add(adj, new_paths, :lor)
+            {:ok, result}
           end,
           max_iter: 10
         )

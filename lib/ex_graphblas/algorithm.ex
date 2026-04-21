@@ -20,7 +20,9 @@ defmodule GraphBLAS.Algorithm do
   - **Phase 6C** -- Query foundations (fixed-point iteration primitive)
   """
 
-  alias GraphBLAS.{Config, Error, Mask, Matrix, Scalar, Vector, Descriptor}
+  alias GraphBLAS.Backend.Elixir, as: RefBackend
+  alias GraphBLAS.Backend.SuiteSparse
+  alias GraphBLAS.{Config, Descriptor, Error, Mask, Matrix, Scalar, Vector}
 
   @default_max_iter 100
   @default_tol 1.0e-6
@@ -45,11 +47,9 @@ defmodule GraphBLAS.Algorithm do
     with :ok <- validate_source(source, n) do
       backend = Config.resolve_backend(opts)
 
-      with {:ok, frontier} <- Vector.from_entries(n, [{source, true}], :bool, backend: backend),
-           {:ok, visited} <- Vector.dup(frontier, backend: backend),
-           {:ok, result} <- bfs_reach_loop(adj, frontier, visited, opts) do
-        {:ok, result}
-      end
+      {:ok, frontier} = Vector.from_entries(n, [{source, true}], :bool, backend: backend)
+      {:ok, visited} = Vector.dup(frontier, backend: backend)
+      bfs_reach_loop(adj, frontier, visited, opts)
     end
   end
 
@@ -118,18 +118,22 @@ defmodule GraphBLAS.Algorithm do
     if nvals == 0 do
       {:ok, levels}
     else
-      levels_mask = Mask.complement(levels)
+      bfs_levels_expand(adj, frontier, levels, level, max_iter, n, backend)
+    end
+  end
 
-      with {:ok, new_frontier} <-
-             ok(Vector.vxm(frontier, adj, :lor_land, mask: levels_mask, backend: backend)),
-           {:ok, frontier_entries} <- ok(backend.vector_to_entries(new_frontier)),
-           level_entries <- Enum.map(frontier_entries, fn {idx, _} -> {idx, level + 1} end),
-           {:ok, level_vec} <- Vector.from_entries(n, level_entries, :int64, backend: backend),
-           {:ok, new_levels} <- ok(Vector.ewise_add(levels, level_vec, :min, backend: backend)) do
-        maybe_free(frontier, backend)
-        maybe_free(levels, backend)
-        bfs_levels_loop(adj, new_frontier, new_levels, level + 1, max_iter, n, backend)
-      end
+  defp bfs_levels_expand(adj, frontier, levels, level, max_iter, n, backend) do
+    levels_mask = Mask.complement(levels)
+
+    with {:ok, new_frontier} <-
+           ok(Vector.vxm(frontier, adj, :lor_land, mask: levels_mask, backend: backend)),
+         {:ok, frontier_entries} <- ok(backend.vector_to_entries(new_frontier)),
+         level_entries <- Enum.map(frontier_entries, fn {idx, _} -> {idx, level + 1} end),
+         {:ok, level_vec} <- Vector.from_entries(n, level_entries, :int64, backend: backend),
+         {:ok, new_levels} <- ok(Vector.ewise_add(levels, level_vec, :min, backend: backend)) do
+      maybe_free(frontier, backend)
+      maybe_free(levels, backend)
+      bfs_levels_loop(adj, new_frontier, new_levels, level + 1, max_iter, n, backend)
     end
   end
 
@@ -203,43 +207,17 @@ defmodule GraphBLAS.Algorithm do
     r_lint = Matrix.from_coo(n, n, lower_int, :int64, backend: backend)
     r_aint = Matrix.from_coo(n, n, full_int, :int64, backend: backend)
 
-    if not match?({:ok, _}, r_lint) do
-      r_lint
-    else
-      {:ok, lint} = r_lint
-
-      if not match?({:ok, _}, r_aint) do
-        r_aint
-      else
-        {:ok, aint} = r_aint
-        r_c = Matrix.mxm(lint, aint, :plus_times, mask: Mask.new(lint), backend: backend)
-
-        if not match?({:ok, _}, r_c) do
-          r_c
-        else
-          {:ok, cmat} = r_c
-          r_v = Matrix.reduce(cmat, :plus, backend: backend)
-
-          if not match?({:ok, _}, r_v) do
-            r_v
-          else
-            {:ok, vvec} = r_v
-            r_s = Vector.reduce(vvec, :plus, backend: backend)
-
-            if not match?({:ok, _}, r_s) do
-              r_s
-            else
-              {:ok, sval} = r_s
-              count = Scalar.value(sval)
-              maybe_free(lint, backend)
-              maybe_free(aint, backend)
-              maybe_free(cmat, backend)
-              maybe_free(vvec, backend)
-              {:ok, div(count, 2)}
-            end
-          end
-        end
-      end
+    with {:ok, lint} <- ok(r_lint),
+         {:ok, aint} <- ok(r_aint),
+         {:ok, cmat} <- ok(Matrix.mxm(lint, aint, :plus_times, mask: Mask.new(lint), backend: backend)),
+         {:ok, vvec} <- ok(Matrix.reduce(cmat, :plus, backend: backend)),
+         {:ok, sval} <- ok(Vector.reduce(vvec, :plus, backend: backend)) do
+      count = Scalar.value(sval)
+      maybe_free(lint, backend)
+      maybe_free(aint, backend)
+      maybe_free(cmat, backend)
+      maybe_free(vvec, backend)
+      {:ok, div(count, 2)}
     end
   end
 
@@ -273,32 +251,36 @@ defmodule GraphBLAS.Algorithm do
       maybe_free(unvisited, backend)
       {:ok, component}
     else
-      {:ok, unvisited_entries} = ok(backend.vector_to_entries(unvisited))
-      {v, _} = hd(unvisited_entries)
+      cc_expand_component(adj, component, unvisited, backend)
+    end
+  end
 
-      with {:ok, visited} <- bfs_reach(adj, v, backend: backend),
-           {:ok, comp_val} <- ok(Vector.extract(component, v, backend: backend)),
-           {:ok, visited_entries} <- ok(backend.vector_to_entries(visited)),
-           {:ok, vec_size} <- ok(backend.vector_size(component)),
-           stamp_entries <- Enum.map(visited_entries, fn {i, _} -> {i, comp_val} end),
-           {:ok, stamp_vec} <-
-             Vector.from_entries(vec_size, stamp_entries, :int64, backend: backend),
-           {:ok, new_component} <-
-             ok(Vector.ewise_add(component, stamp_vec, :min, backend: backend)),
-           visited_complement <- Mask.complement(visited),
-           {:ok, new_unvisited} <-
-             ok(
-               Vector.ewise_mult(unvisited, unvisited, :land,
-                 mask: visited_complement,
-                 backend: backend
-               )
-             ) do
-        maybe_free(component, backend)
-        maybe_free(unvisited, backend)
-        maybe_free(visited, backend)
-        maybe_free(stamp_vec, backend)
-        cc_loop(adj, new_component, new_unvisited, nil, backend)
-      end
+  defp cc_expand_component(adj, component, unvisited, backend) do
+    {:ok, unvisited_entries} = ok(backend.vector_to_entries(unvisited))
+    {v, _} = hd(unvisited_entries)
+
+    with {:ok, visited} <- bfs_reach(adj, v, backend: backend),
+         {:ok, comp_val} <- ok(Vector.extract(component, v, backend: backend)),
+         {:ok, visited_entries} <- ok(backend.vector_to_entries(visited)),
+         {:ok, vec_size} <- ok(backend.vector_size(component)),
+         stamp_entries <- Enum.map(visited_entries, fn {i, _} -> {i, comp_val} end),
+         {:ok, stamp_vec} <-
+           Vector.from_entries(vec_size, stamp_entries, :int64, backend: backend),
+         {:ok, new_component} <-
+           ok(Vector.ewise_add(component, stamp_vec, :min, backend: backend)),
+         visited_complement <- Mask.complement(visited),
+         {:ok, new_unvisited} <-
+           ok(
+             Vector.ewise_mult(unvisited, unvisited, :land,
+               mask: visited_complement,
+               backend: backend
+             )
+           ) do
+      maybe_free(component, backend)
+      maybe_free(unvisited, backend)
+      maybe_free(visited, backend)
+      maybe_free(stamp_vec, backend)
+      cc_loop(adj, new_component, new_unvisited, nil, backend)
     end
   end
 
@@ -350,16 +332,33 @@ defmodule GraphBLAS.Algorithm do
          r_entries <- for(i <- 0..(n - 1), do: {i, r_init}),
          {:ok, r} <- Vector.from_entries(n, r_entries, :fp64, backend: backend) do
       maybe_free(adj_int, backend)
-      pagerank_loop(at, out_deg, recip, r, n, damping, tol, 0, max_iter, backend)
+      pagerank_loop(at, out_deg, recip, r, %{
+        n: n,
+        damping: damping,
+        tol: tol,
+        iter: 0,
+        max_iter: max_iter,
+        backend: backend
+      })
     end
   end
 
-  defp pagerank_loop(_at, _out_deg, _recip, r, _n, _damping, _tol, iter, max_iter, _backend)
+  defp pagerank_loop(_at, _out_deg, _recip, r, %{
+         iter: iter,
+         max_iter: max_iter
+       })
        when iter >= max_iter do
     {:ok, r}
   end
 
-  defp pagerank_loop(at, out_deg, recip, r, n, damping, tol, iter, max_iter, backend) do
+  defp pagerank_loop(at, out_deg, recip, r, %{
+         n: n,
+         damping: damping,
+         tol: tol,
+         iter: iter,
+         max_iter: max_iter,
+         backend: backend
+       }) do
     with {:ok, r_scaled} <- ok(Vector.ewise_mult(r, recip, :times_fp64, backend: backend)),
          {:ok, r_new} <- ok(Matrix.mxv(at, r_scaled, :plus_times_fp64, backend: backend)),
          {:ok, r_new} <- scale_and_shift(r_new, damping, (1 - damping) / n, n, backend),
@@ -371,7 +370,14 @@ defmodule GraphBLAS.Algorithm do
       else
         maybe_free(r_scaled, backend)
         maybe_free(r, backend)
-        pagerank_loop(at, out_deg, recip, r_new, n, damping, tol, iter + 1, max_iter, backend)
+        pagerank_loop(at, out_deg, recip, r_new, %{
+          n: n,
+          damping: damping,
+          tol: tol,
+          iter: iter + 1,
+          max_iter: max_iter,
+          backend: backend
+        })
       end
     end
   end
@@ -453,7 +459,7 @@ defmodule GraphBLAS.Algorithm do
     {:ok, old_entries} = ok(backend.vector_to_entries(old_vec))
     {:ok, new_entries} = ok(backend.vector_to_entries(new_vec))
 
-    if backend == GraphBLAS.Backend.SuiteSparse do
+    if backend == SuiteSparse do
       Enum.sort(old_entries) == Enum.sort(new_entries)
     else
       old_entries == new_entries
@@ -517,24 +523,27 @@ defmodule GraphBLAS.Algorithm do
       {:ok, r_new}
     else
       shift = damping * dangling_sum / n
-
-      with {:ok, entries} <- ok(backend.vector_to_entries(r_new)),
-           shifted <- Enum.map(entries, fn {i, v} -> {i, v + shift} end),
-           {:ok, result} <- Vector.from_entries(n, shifted, :fp64, backend: backend) do
-        maybe_free(r_new, backend)
-        {:ok, result}
-      end
+      apply_shift(r_new, shift, n, backend)
     end
   end
 
-  defp maybe_free(_container, GraphBLAS.Backend.Elixir), do: :ok
-
-  defp maybe_free(%Matrix{} = m, GraphBLAS.Backend.SuiteSparse) do
-    GraphBLAS.Backend.SuiteSparse.matrix_free(m)
+  defp apply_shift(r_new, shift, n, backend) do
+    with {:ok, entries} <- ok(backend.vector_to_entries(r_new)),
+         shifted <- Enum.map(entries, fn {i, v} -> {i, v + shift} end),
+         {:ok, result} <- Vector.from_entries(n, shifted, :fp64, backend: backend) do
+      maybe_free(r_new, backend)
+      {:ok, result}
+    end
   end
 
-  defp maybe_free(%Vector{} = v, GraphBLAS.Backend.SuiteSparse) do
-    GraphBLAS.Backend.SuiteSparse.vector_free(v)
+  defp maybe_free(_container, RefBackend), do: :ok
+
+  defp maybe_free(%Matrix{} = m, SuiteSparse) do
+    SuiteSparse.matrix_free(m)
+  end
+
+  defp maybe_free(%Vector{} = v, SuiteSparse) do
+    SuiteSparse.vector_free(v)
   end
 
   defp ok({:ok, val}), do: {:ok, val}
@@ -576,7 +585,7 @@ defmodule GraphBLAS.Algorithm do
   end
 
   defp vector_to_entries(%Vector{data: %{ptr: _ptr}} = vec) do
-    GraphBLAS.Backend.SuiteSparse.vector_to_entries(vec)
+    SuiteSparse.vector_to_entries(vec)
   end
 
   defp matrix_to_coo(%Matrix{data: %{entries: entries}}) do
@@ -587,6 +596,6 @@ defmodule GraphBLAS.Algorithm do
   end
 
   defp matrix_to_coo(%Matrix{data: %{ptr: _ptr}} = mat) do
-    GraphBLAS.Backend.SuiteSparse.matrix_to_coo(mat)
+    SuiteSparse.matrix_to_coo(mat)
   end
 end
