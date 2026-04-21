@@ -45,7 +45,9 @@ defmodule GraphBLAS.MaskTest do
 
   describe "structural mask on matrix_mxm" do
     test "only writes positions present in mask" do
-      {:ok, a} = RefBackend.matrix_from_coo(2, 2, [{0, 0, 1}, {0, 1, 2}, {1, 0, 3}, {1, 1, 4}], :int64, [])
+      {:ok, a} =
+        RefBackend.matrix_from_coo(2, 2, [{0, 0, 1}, {0, 1, 2}, {1, 0, 3}, {1, 1, 4}], :int64, [])
+
       {:ok, b} = RefBackend.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
       {:ok, c_unmasked} = RefBackend.matrix_mxm(a, b, :plus_times, [])
       {:ok, mask_entries} = RefBackend.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])

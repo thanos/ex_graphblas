@@ -21,6 +21,8 @@ defmodule GraphBLAS.Backend.SuiteSparse do
   @semiring_max_min_fp64 8
   @semiring_lor_land 9
   @semiring_land_lor 10
+  @semiring_min_plus 11
+  @semiring_min_plus_fp64 12
 
   # Monoid codes matching native.ex
   @monoid_plus 1
@@ -619,7 +621,9 @@ defmodule GraphBLAS.Backend.SuiteSparse do
     max_min: @semiring_max_min,
     max_min_fp64: @semiring_max_min_fp64,
     lor_land: @semiring_lor_land,
-    land_lor: @semiring_land_lor
+    land_lor: @semiring_land_lor,
+    min_plus: @semiring_min_plus,
+    min_plus_fp64: @semiring_min_plus_fp64
   }
 
   @monoid_codes %{
@@ -683,6 +687,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       case matrix_transpose(m, []) do
         {:ok, %Matrix{data: %{ptr: t_ptr}} = t} ->
           {t_ptr, t}
+
         {:error, _} = err ->
           Error.error(err)
       end
@@ -696,6 +701,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       case matrix_transpose(m, []) do
         {:ok, %Matrix{data: %{ptr: t_ptr}} = t} ->
           {t_ptr, t}
+
         {:error, _} = err ->
           Error.error(err)
       end

@@ -94,6 +94,7 @@ defmodule GraphBLAS.Backend.Elixir do
   def matrix_mxm(%Matrix{} = a, %Matrix{} = b, semiring, opts) do
     with {:ok, sr} <- resolve_semiring(semiring) do
       {a, b} = apply_descriptor_inputs(a, b, opts)
+
       with :ok <- validate_mxm_dims(a, b) do
         {nrows_a, _ncols_a} = a.shape
         {_nrows_b, ncols_b} = b.shape
@@ -112,6 +113,7 @@ defmodule GraphBLAS.Backend.Elixir do
   def matrix_mxv(%Matrix{} = matrix, %Vector{} = vector, semiring, opts) do
     with {:ok, sr} <- resolve_semiring(semiring) do
       {matrix, _} = apply_descriptor_inputs(matrix, nil, opts)
+
       with :ok <- validate_mxv_dims(matrix, vector) do
         multiply_fn = resolve_operator_fn(sr.multiply)
         add_fn = resolve_operator_fn(sr.add)
@@ -259,6 +261,7 @@ defmodule GraphBLAS.Backend.Elixir do
   def vector_vxm(%Vector{} = vector, %Matrix{} = matrix, semiring, opts) do
     with {:ok, sr} <- resolve_semiring(semiring) do
       {_, matrix} = apply_descriptor_inputs(nil, matrix, opts)
+
       with :ok <- validate_vxm_dims(vector, matrix) do
         multiply_fn = resolve_operator_fn(sr.multiply)
         add_fn = resolve_operator_fn(sr.add)

@@ -218,6 +218,28 @@ defmodule GraphBLAS.Semiring do
         type: :bool
       )
 
+  def builtin(:min_plus),
+    do:
+      new(
+        name: :min_plus,
+        multiply: :plus,
+        add: :min,
+        add_identity: nil,
+        multiply_identity: 0,
+        type: :int64
+      )
+
+  def builtin(:min_plus_fp64),
+    do:
+      new(
+        name: :min_plus_fp64,
+        multiply: :plus,
+        add: :min,
+        add_identity: nil,
+        multiply_identity: 0.0,
+        type: :fp64
+      )
+
   def builtin(_), do: nil
 
   @doc """
@@ -235,7 +257,9 @@ defmodule GraphBLAS.Semiring do
       :max_min,
       :max_min_fp64,
       :lor_land,
-      :land_lor
+      :land_lor,
+      :min_plus,
+      :min_plus_fp64
     ]
   end
 end

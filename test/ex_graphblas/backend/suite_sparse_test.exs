@@ -914,7 +914,15 @@ defmodule GraphBLAS.SuiteSparseBackendTest do
 
   describe "mask on mxm" do
     test "structural mask restricts output positions" do
-      {:ok, a} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}, {0, 1, 2}, {1, 0, 3}, {1, 1, 4}], :int64, [])
+      {:ok, a} =
+        SuiteSparse.matrix_from_coo(
+          2,
+          2,
+          [{0, 0, 1}, {0, 1, 2}, {1, 0, 3}, {1, 1, 4}],
+          :int64,
+          []
+        )
+
       {:ok, b} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}, {1, 1, 1}], :int64, [])
       {:ok, mask_src} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1}], :int64, [])
       mask = GraphBLAS.Mask.new(mask_src)
