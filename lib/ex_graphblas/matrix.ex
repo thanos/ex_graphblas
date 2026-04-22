@@ -131,6 +131,9 @@ defmodule GraphBLAS.Matrix do
   Dispatches to the backend that created the matrix.
   """
   @spec nvals(t()) :: {:ok, non_neg_integer()} | {:error, Error.t()}
+  def nvals(%__MODULE__{backend: nil} = matrix),
+    do: nvals(%{matrix | backend: Config.default_backend()})
+
   def nvals(%__MODULE__{backend: backend} = matrix) do
     backend.matrix_nvals(matrix)
   end
@@ -144,6 +147,9 @@ defmodule GraphBLAS.Matrix do
   Dispatches to the backend that created the matrix.
   """
   @spec to_coo(t()) :: {:ok, [Types.coo_entry()]} | {:error, Error.t()}
+  def to_coo(%__MODULE__{backend: nil} = matrix),
+    do: to_coo(%{matrix | backend: Config.default_backend()})
+
   def to_coo(%__MODULE__{backend: backend} = matrix) do
     backend.matrix_to_coo(matrix)
   end
@@ -264,6 +270,9 @@ defmodule GraphBLAS.Matrix do
 
   """
   @spec to_dense(t()) :: {:ok, [[term()]]} | {:error, Error.t()}
+  def to_dense(%__MODULE__{backend: nil} = matrix),
+    do: to_dense(%{matrix | backend: Config.default_backend()})
+
   def to_dense(%__MODULE__{backend: backend} = matrix) do
     backend.matrix_to_dense(matrix)
   end
@@ -280,7 +289,12 @@ defmodule GraphBLAS.Matrix do
   """
   @spec set(t(), non_neg_integer(), non_neg_integer(), term(), Types.opts()) ::
           {:ok, t()} | {:error, Error.t()}
-  def set(%__MODULE__{backend: backend} = matrix, row, col, value, _opts \\ []) do
+  def set(matrix, row, col, value, opts \\ [])
+
+  def set(%__MODULE__{backend: nil} = matrix, row, col, value, opts),
+    do: set(%{matrix | backend: Config.default_backend()}, row, col, value, opts)
+
+  def set(%__MODULE__{backend: backend} = matrix, row, col, value, _opts) do
     backend.matrix_set(matrix, row, col, value)
   end
 
@@ -298,7 +312,12 @@ defmodule GraphBLAS.Matrix do
   """
   @spec extract(t(), non_neg_integer(), non_neg_integer(), Types.opts()) ::
           {:ok, term()} | {:error, Error.t()}
-  def extract(%__MODULE__{backend: backend} = matrix, row, col, _opts \\ []) do
+  def extract(matrix, row, col, opts \\ [])
+
+  def extract(%__MODULE__{backend: nil} = matrix, row, col, opts),
+    do: extract(%{matrix | backend: Config.default_backend()}, row, col, opts)
+
+  def extract(%__MODULE__{backend: backend} = matrix, row, col, _opts) do
     backend.matrix_extract(matrix, row, col)
   end
 

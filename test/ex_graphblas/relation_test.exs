@@ -128,7 +128,8 @@ defmodule GraphBLAS.RelationTest do
     end
 
     test "closure returns error for unknown predicate", %{rel: rel} do
-      assert {:error, :predicate_not_found} = Relation.closure(rel, :unknown, :lor_land)
+      assert {:error, %GraphBLAS.Error{reason: {:unknown_predicate, :unknown}}} =
+               Relation.closure(rel, :unknown, :lor_land)
     end
 
     test "closure on cyclic graph converges" do

@@ -92,22 +92,22 @@ defmodule GraphBLAS.Backend.SuiteSparse do
 
   @impl GraphBLAS.Backend
   def matrix_to_coo(%Matrix{type: type, data: %{ptr: ptr}}) do
-    nvals =
-      case GraphBLAS.Native.matrix_nvals(ptr) do
-        n when is_integer(n) -> n
-        {:error, reason} -> Error.error({:backend_error, __MODULE__, reason})
-      end
+    case GraphBLAS.Native.matrix_nvals(ptr) do
+      n when is_integer(n) ->
+        extract_result =
+          case type do
+            :int64 -> GraphBLAS.Native.matrix_extract_tuples_int64(ptr, n)
+            :fp64 -> GraphBLAS.Native.matrix_extract_tuples_fp64(ptr, n)
+            :bool -> GraphBLAS.Native.matrix_extract_tuples_bool(ptr, n)
+          end
 
-    extract_result =
-      case type do
-        :int64 -> GraphBLAS.Native.matrix_extract_tuples_int64(ptr, nvals)
-        :fp64 -> GraphBLAS.Native.matrix_extract_tuples_fp64(ptr, nvals)
-        :bool -> GraphBLAS.Native.matrix_extract_tuples_bool(ptr, nvals)
-      end
+        case extract_result do
+          %{rows: rows, cols: cols, vals: vals, actual_nvals: _} ->
+            {:ok, Enum.zip_with([rows, cols, vals], fn [r, c, v] -> {r, c, v} end)}
 
-    case extract_result do
-      %{rows: rows, cols: cols, vals: vals, actual_nvals: _} ->
-        {:ok, Enum.zip_with([rows, cols, vals], fn [r, c, v] -> {r, c, v} end)}
+          {:error, reason} ->
+            Error.error({:backend_error, __MODULE__, reason})
+        end
 
       {:error, reason} ->
         Error.error({:backend_error, __MODULE__, reason})
@@ -400,22 +400,22 @@ defmodule GraphBLAS.Backend.SuiteSparse do
 
   @impl GraphBLAS.Backend
   def vector_to_entries(%Vector{type: type, data: %{ptr: ptr}}) do
-    nvals =
-      case GraphBLAS.Native.vector_nvals(ptr) do
-        n when is_integer(n) -> n
-        {:error, reason} -> Error.error({:backend_error, __MODULE__, reason})
-      end
+    case GraphBLAS.Native.vector_nvals(ptr) do
+      n when is_integer(n) ->
+        extract_result =
+          case type do
+            :int64 -> GraphBLAS.Native.vector_extract_tuples_int64(ptr, n)
+            :fp64 -> GraphBLAS.Native.vector_extract_tuples_fp64(ptr, n)
+            :bool -> GraphBLAS.Native.vector_extract_tuples_bool(ptr, n)
+          end
 
-    extract_result =
-      case type do
-        :int64 -> GraphBLAS.Native.vector_extract_tuples_int64(ptr, nvals)
-        :fp64 -> GraphBLAS.Native.vector_extract_tuples_fp64(ptr, nvals)
-        :bool -> GraphBLAS.Native.vector_extract_tuples_bool(ptr, nvals)
-      end
+        case extract_result do
+          %{indices: indices, vals: vals, actual_nvals: _} ->
+            {:ok, Enum.zip_with([indices, vals], fn [i, v] -> {i, v} end)}
 
-    case extract_result do
-      %{indices: indices, vals: vals, actual_nvals: _} ->
-        {:ok, Enum.zip_with([indices, vals], fn [i, v] -> {i, v} end)}
+          {:error, reason} ->
+            Error.error({:backend_error, __MODULE__, reason})
+        end
 
       {:error, reason} ->
         Error.error({:backend_error, __MODULE__, reason})

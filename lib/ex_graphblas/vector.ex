@@ -80,6 +80,9 @@ defmodule GraphBLAS.Vector do
   Dispatches to the backend that created the vector.
   """
   @spec nvals(t()) :: {:ok, non_neg_integer()} | {:error, Error.t()}
+  def nvals(%__MODULE__{backend: nil} = vector),
+    do: nvals(%{vector | backend: Config.default_backend()})
+
   def nvals(%__MODULE__{backend: backend} = vector) do
     backend.vector_nvals(vector)
   end
@@ -90,6 +93,9 @@ defmodule GraphBLAS.Vector do
   Dispatches to the backend that created the vector.
   """
   @spec to_entries(t()) :: {:ok, [Types.vector_entry()]} | {:error, Error.t()}
+  def to_entries(%__MODULE__{backend: nil} = vector),
+    do: to_entries(%{vector | backend: Config.default_backend()})
+
   def to_entries(%__MODULE__{backend: backend} = vector) do
     backend.vector_to_entries(vector)
   end
@@ -159,6 +165,9 @@ defmodule GraphBLAS.Vector do
 
   """
   @spec to_list(t()) :: {:ok, [term()]} | {:error, Error.t()}
+  def to_list(%__MODULE__{backend: nil} = vector),
+    do: to_list(%{vector | backend: Config.default_backend()})
+
   def to_list(%__MODULE__{backend: backend} = vector) do
     backend.vector_to_list(vector)
   end
@@ -175,7 +184,12 @@ defmodule GraphBLAS.Vector do
   """
   @spec set(t(), non_neg_integer(), term(), Types.opts()) ::
           {:ok, t()} | {:error, Error.t()}
-  def set(%__MODULE__{backend: backend} = vector, index, value, _opts \\ []) do
+  def set(vector, index, value, opts \\ [])
+
+  def set(%__MODULE__{backend: nil} = vector, index, value, opts),
+    do: set(%{vector | backend: Config.default_backend()}, index, value, opts)
+
+  def set(%__MODULE__{backend: backend} = vector, index, value, _opts) do
     backend.vector_set(vector, index, value)
   end
 
@@ -193,7 +207,12 @@ defmodule GraphBLAS.Vector do
   """
   @spec extract(t(), non_neg_integer(), Types.opts()) ::
           {:ok, term()} | {:error, Error.t()}
-  def extract(%__MODULE__{backend: backend} = vector, index, _opts \\ []) do
+  def extract(vector, index, opts \\ [])
+
+  def extract(%__MODULE__{backend: nil} = vector, index, opts),
+    do: extract(%{vector | backend: Config.default_backend()}, index, opts)
+
+  def extract(%__MODULE__{backend: backend} = vector, index, _opts) do
     backend.vector_extract(vector, index)
   end
 

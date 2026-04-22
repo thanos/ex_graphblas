@@ -153,7 +153,7 @@ defmodule GraphBLAS.Relation do
 
   def traverse(%__MODULE__{} = rel, [p | rest], semiring, opts) do
     with {:ok, first} <- matrix(rel, p),
-         rest_mats <- tl_path_mats(rel, rest) do
+         {:ok, rest_mats} <- collect_path_mats(rel, rest) do
       needs_int =
         semiring in [
           :plus_times,
@@ -187,10 +187,12 @@ defmodule GraphBLAS.Relation do
     end
   end
 
-  defp tl_path_mats(rel, predicates) do
-    Enum.map(predicates, fn p ->
-      {:ok, mat} = matrix(rel, p)
-      mat
+  defp collect_path_mats(rel, predicates) do
+    Enum.reduce_while(predicates, {:ok, []}, fn p, {:ok, acc} ->
+      case matrix(rel, p) do
+        {:ok, mat} -> {:cont, {:ok, acc ++ [mat]}}
+        {:error, _} = err -> {:halt, err}
+      end
     end)
   end
 
@@ -237,28 +239,37 @@ defmodule GraphBLAS.Relation do
   """
   @spec closure(t(), atom(), atom() | GraphBLAS.Semiring.t(), keyword()) ::
           {:ok, Matrix.t()} | {:error, Error.t()}
-  def closure(%__MODULE__{predicates: preds} = _rel, predicate, _semiring, opts \\ []) do
+  def closure(%__MODULE__{predicates: preds} = _rel, predicate, semiring, opts \\ []) do
     case Map.fetch(preds, predicate) do
       {:ok, matrix} ->
         backend = Config.resolve_backend(opts)
-        _closure_impl(matrix, matrix, backend, 0)
+
+        with {:ok, sr} <- GraphBLAS.Semiring.resolve(semiring) do
+          closure_loop(matrix, matrix, sr, backend, 0)
+        end
 
       :error ->
-        {:error, :predicate_not_found}
+        Error.error({:unknown_predicate, predicate})
     end
   end
 
-  defp _closure_impl(_a, p, _backend, iter) when iter >= 100, do: {:ok, p}
+  defp closure_loop(_a, p, _semiring, _backend, iter) when iter >= 100, do: {:ok, p}
 
-  defp _closure_impl(a, p, backend, iter) do
-    with {:ok, new_paths} <- Matrix.mxm(p, a, :lor_land, backend: backend),
-         {:ok, p_new} <- Matrix.ewise_add(p, new_paths, :lor, backend: backend),
+  defp closure_loop(a, p, semiring, backend, iter) do
+    add_monoid = semiring.add
+
+    with {:ok, new_paths} <- Matrix.mxm(p, a, semiring.name, backend: backend),
+         {:ok, p_new} <- Matrix.ewise_add(p, new_paths, add_monoid, backend: backend),
          {:ok, old_coo} <- Matrix.to_coo(p),
          {:ok, new_coo} <- Matrix.to_coo(p_new) do
+      maybe_free_intermediate(new_paths, backend)
+
       if Enum.sort(old_coo) == Enum.sort(new_coo) do
+        maybe_free_intermediate(p, backend)
         {:ok, p_new}
       else
-        _closure_impl(a, p_new, backend, iter + 1)
+        maybe_free_intermediate(p, backend)
+        closure_loop(a, p_new, semiring, backend, iter + 1)
       end
     end
   end

@@ -65,7 +65,7 @@ defmodule GraphBLAS.Algorithm do
   end
 
   defp bfs_reach_loop(adj, frontier, visited, iter, max_iter, backend) do
-    {:ok, nvals} = backend.vector_nvals(frontier)
+    {:ok, nvals} = Vector.nvals(frontier)
 
     if nvals == 0 do
       {:ok, visited}
@@ -113,7 +113,7 @@ defmodule GraphBLAS.Algorithm do
   end
 
   defp bfs_levels_loop(adj, frontier, levels, level, max_iter, n, backend) do
-    {:ok, nvals} = backend.vector_nvals(frontier)
+    {:ok, nvals} = Vector.nvals(frontier)
 
     if nvals == 0 do
       {:ok, levels}
@@ -127,7 +127,7 @@ defmodule GraphBLAS.Algorithm do
 
     with {:ok, new_frontier} <-
            ok(Vector.vxm(frontier, adj, :lor_land, mask: levels_mask, backend: backend)),
-         {:ok, frontier_entries} <- ok(backend.vector_to_entries(new_frontier)),
+         {:ok, frontier_entries} <- Vector.to_entries(new_frontier),
          level_entries <- Enum.map(frontier_entries, fn {idx, _} -> {idx, level + 1} end),
          {:ok, level_vec} <- Vector.from_entries(n, level_entries, :int64, backend: backend),
          {:ok, new_levels} <- ok(Vector.ewise_add(levels, level_vec, :min, backend: backend)) do
@@ -163,7 +163,7 @@ defmodule GraphBLAS.Algorithm do
   end
 
   defp sssp_strip_inf(dist, n, backend) do
-    {:ok, entries} = ok(backend.vector_to_entries(dist))
+    {:ok, entries} = Vector.to_entries(dist)
     reachable = Enum.reject(entries, fn {_, v} -> v >= @sssp_inf end)
     Vector.from_entries(n, reachable, :fp64, backend: backend)
   end
@@ -200,25 +200,23 @@ defmodule GraphBLAS.Algorithm do
     backend = Config.resolve_backend(opts)
     {n, _} = adj.shape
 
-    {:ok, adj_coo} = ok(Matrix.to_coo(adj))
-    lower_int = for {r, c, _v} <- adj_coo, r > c, do: {r, c, 1}
-    full_int = for {r, c, _v} <- adj_coo, do: {r, c, 1}
+    with {:ok, adj_coo} <- Matrix.to_coo(adj) do
+      lower_int = for {r, c, _v} <- adj_coo, r > c, do: {r, c, 1}
+      full_int = for {r, c, _v} <- adj_coo, do: {r, c, 1}
 
-    r_lint = Matrix.from_coo(n, n, lower_int, :int64, backend: backend)
-    r_aint = Matrix.from_coo(n, n, full_int, :int64, backend: backend)
-
-    with {:ok, lint} <- ok(r_lint),
-         {:ok, aint} <- ok(r_aint),
-         {:ok, cmat} <-
-           ok(Matrix.mxm(lint, aint, :plus_times, mask: Mask.new(lint), backend: backend)),
-         {:ok, vvec} <- ok(Matrix.reduce(cmat, :plus, backend: backend)),
-         {:ok, sval} <- ok(Vector.reduce(vvec, :plus, backend: backend)) do
-      count = Scalar.value(sval)
-      maybe_free(lint, backend)
-      maybe_free(aint, backend)
-      maybe_free(cmat, backend)
-      maybe_free(vvec, backend)
-      {:ok, div(count, 2)}
+      with {:ok, lint} <- Matrix.from_coo(n, n, lower_int, :int64, backend: backend),
+           {:ok, aint} <- Matrix.from_coo(n, n, full_int, :int64, backend: backend),
+           {:ok, cmat} <-
+             ok(Matrix.mxm(lint, aint, :plus_times, mask: Mask.new(lint), backend: backend)),
+           {:ok, vvec} <- ok(Matrix.reduce(cmat, :plus, backend: backend)),
+           {:ok, sval} <- ok(Vector.reduce(vvec, :plus, backend: backend)) do
+        count = Scalar.value(sval)
+        maybe_free(lint, backend)
+        maybe_free(aint, backend)
+        maybe_free(cmat, backend)
+        maybe_free(vvec, backend)
+        {:ok, div(count, 2)}
+      end
     end
   end
 
@@ -246,7 +244,7 @@ defmodule GraphBLAS.Algorithm do
   end
 
   defp cc_loop(adj, component, unvisited, _n, backend) do
-    {:ok, nvals} = backend.vector_nvals(unvisited)
+    {:ok, nvals} = Vector.nvals(unvisited)
 
     if nvals == 0 do
       maybe_free(unvisited, backend)
@@ -257,13 +255,13 @@ defmodule GraphBLAS.Algorithm do
   end
 
   defp cc_expand_component(adj, component, unvisited, backend) do
-    {:ok, unvisited_entries} = ok(backend.vector_to_entries(unvisited))
+    {:ok, unvisited_entries} = Vector.to_entries(unvisited)
     {v, _} = hd(unvisited_entries)
 
     with {:ok, visited} <- bfs_reach(adj, v, backend: backend),
-         {:ok, comp_val} <- ok(Vector.extract(component, v, backend: backend)),
-         {:ok, visited_entries} <- ok(backend.vector_to_entries(visited)),
-         {:ok, vec_size} <- ok(backend.vector_size(component)),
+         {:ok, comp_val} <- Vector.extract(component, v),
+         {:ok, visited_entries} <- Vector.to_entries(visited),
+         {:ok, vec_size} <- Vector.size(component),
          stamp_entries <- Enum.map(visited_entries, fn {i, _} -> {i, comp_val} end),
          {:ok, stamp_vec} <-
            Vector.from_entries(vec_size, stamp_entries, :int64, backend: backend),
@@ -459,20 +457,15 @@ defmodule GraphBLAS.Algorithm do
     Matrix.from_coo(nrows, ncols, int_coo, :int64, backend: backend)
   end
 
-  defp converged_exact?(old_vec, new_vec, backend) do
-    {:ok, old_entries} = ok(backend.vector_to_entries(old_vec))
-    {:ok, new_entries} = ok(backend.vector_to_entries(new_vec))
-
-    if backend == SuiteSparse do
-      Enum.sort(old_entries) == Enum.sort(new_entries)
-    else
-      old_entries == new_entries
-    end
+  defp converged_exact?(old_vec, new_vec, _backend) do
+    {:ok, old_entries} = Vector.to_entries(old_vec)
+    {:ok, new_entries} = Vector.to_entries(new_vec)
+    Enum.sort(old_entries) == Enum.sort(new_entries)
   end
 
-  defp converged_tolerance?(old_vec, new_vec, tol, backend) do
-    {:ok, old_entries} = ok(backend.vector_to_entries(old_vec))
-    {:ok, new_entries} = ok(backend.vector_to_entries(new_vec))
+  defp converged_tolerance?(old_vec, new_vec, tol, _backend) do
+    {:ok, old_entries} = Vector.to_entries(old_vec)
+    {:ok, new_entries} = Vector.to_entries(new_vec)
 
     old_map = Map.new(old_entries)
     new_map = Map.new(new_entries)
@@ -484,7 +477,7 @@ defmodule GraphBLAS.Algorithm do
   end
 
   defp build_reciprocal_degree(out_deg, n, backend) do
-    {:ok, entries} = ok(backend.vector_to_entries(out_deg))
+    {:ok, entries} = Vector.to_entries(out_deg)
     degree_map = Map.new(entries)
 
     recip_entries =
@@ -500,7 +493,7 @@ defmodule GraphBLAS.Algorithm do
   end
 
   defp scale_and_shift(vec, alpha, beta, n, backend) do
-    with {:ok, vec_entries} <- ok(backend.vector_to_entries(vec)),
+    with {:ok, vec_entries} <- Vector.to_entries(vec),
          scaled_entries <- Enum.map(vec_entries, fn {i, v} -> {i, v * alpha + beta} end),
          {:ok, result} <- Vector.from_entries(n, scaled_entries, :fp64, backend: backend) do
       maybe_free(vec, backend)
@@ -509,8 +502,8 @@ defmodule GraphBLAS.Algorithm do
   end
 
   defp apply_dangling_correction(r_new, r, out_deg, damping, n, backend) do
-    {:ok, deg_entries} = ok(backend.vector_to_entries(out_deg))
-    {:ok, r_entries} = ok(backend.vector_to_entries(r))
+    {:ok, deg_entries} = Vector.to_entries(out_deg)
+    {:ok, r_entries} = Vector.to_entries(r)
     degree_map = Map.new(deg_entries)
     r_map = Map.new(r_entries)
 
@@ -532,7 +525,7 @@ defmodule GraphBLAS.Algorithm do
   end
 
   defp apply_shift(r_new, shift, n, backend) do
-    with {:ok, entries} <- ok(backend.vector_to_entries(r_new)),
+    with {:ok, entries} <- Vector.to_entries(r_new),
          shifted <- Enum.map(entries, fn {i, v} -> {i, v + shift} end),
          {:ok, result} <- Vector.from_entries(n, shifted, :fp64, backend: backend) do
       maybe_free(r_new, backend)
@@ -549,6 +542,8 @@ defmodule GraphBLAS.Algorithm do
   defp maybe_free(%Vector{} = v, SuiteSparse) do
     SuiteSparse.vector_free(v)
   end
+
+  defp maybe_free(_container, _backend), do: :ok
 
   defp ok({:ok, val}), do: {:ok, val}
   defp ok(%Matrix{} = m), do: {:ok, m}
