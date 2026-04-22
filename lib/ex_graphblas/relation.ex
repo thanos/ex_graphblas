@@ -248,7 +248,7 @@ defmodule GraphBLAS.Relation do
     end
   end
 
-  defp _closure_impl(a, p, backend, iter) when iter >= 100, do: {:ok, p}
+  defp _closure_impl(_a, p, _backend, iter) when iter >= 100, do: {:ok, p}
 
   defp _closure_impl(a, p, backend, iter) do
     with {:ok, new_paths} <- Matrix.mxm(p, a, :lor_land, backend: backend),

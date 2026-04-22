@@ -51,7 +51,8 @@ defmodule GraphBLAS.Backend.SuiteSparse do
 
       case GraphBLAS.Native.matrix_new(nrows, ncols, code) do
         ptr when is_integer(ptr) ->
-          {:ok, %Matrix{shape: {nrows, ncols}, type: type, data: %{ptr: ptr}}}
+          {:ok,
+           %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
 
         {:error, reason} ->
           Error.error({:backend_error, __MODULE__, reason})
@@ -132,7 +133,9 @@ defmodule GraphBLAS.Backend.SuiteSparse do
           cleanup_descriptor(desc_ptr)
           nrows = GraphBLAS.Native.matrix_nrows(ptr)
           ncols = GraphBLAS.Native.matrix_ncols(ptr)
-          {:ok, %Matrix{shape: {nrows, ncols}, type: sr.type, data: %{ptr: ptr}}}
+
+          {:ok,
+           %Matrix{shape: {nrows, ncols}, type: sr.type, backend: __MODULE__, data: %{ptr: ptr}}}
 
         {:error, reason} ->
           cleanup_descriptor(desc_ptr)
@@ -157,7 +160,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
         ptr when is_integer(ptr) ->
           cleanup_descriptor(desc_ptr)
           size = GraphBLAS.Native.vector_size(ptr)
-          {:ok, %Vector{size: size, type: sr.type, data: %{ptr: ptr}}}
+          {:ok, %Vector{size: size, type: sr.type, backend: __MODULE__, data: %{ptr: ptr}}}
 
         {:error, reason} ->
           cleanup_descriptor(desc_ptr)
@@ -182,7 +185,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       case GraphBLAS.Native.matrix_ewise_add(a_ptr, b_ptr, monoid_code, mask_ptr, desc_ptr) do
         ptr when is_integer(ptr) ->
           cleanup_descriptor(desc_ptr)
-          {:ok, %Matrix{shape: a.shape, type: type, data: %{ptr: ptr}}}
+          {:ok, %Matrix{shape: a.shape, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
 
         {:error, reason} ->
           cleanup_descriptor(desc_ptr)
@@ -207,7 +210,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       case GraphBLAS.Native.matrix_ewise_mult(a_ptr, b_ptr, monoid_code, mask_ptr, desc_ptr) do
         ptr when is_integer(ptr) ->
           cleanup_descriptor(desc_ptr)
-          {:ok, %Matrix{shape: a.shape, type: type, data: %{ptr: ptr}}}
+          {:ok, %Matrix{shape: a.shape, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
 
         {:error, reason} ->
           cleanup_descriptor(desc_ptr)
@@ -228,7 +231,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
         v_ptr when is_integer(v_ptr) ->
           cleanup_descriptor(desc_ptr)
           size = GraphBLAS.Native.vector_size(v_ptr)
-          {:ok, %Vector{size: size, type: type, data: %{ptr: v_ptr}}}
+          {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: v_ptr}}}
 
         {:error, reason} ->
           cleanup_descriptor(desc_ptr)
@@ -248,7 +251,9 @@ defmodule GraphBLAS.Backend.SuiteSparse do
         cleanup_descriptor(desc_ptr)
         nrows = GraphBLAS.Native.matrix_nrows(t_ptr)
         ncols = GraphBLAS.Native.matrix_ncols(t_ptr)
-        {:ok, %Matrix{shape: {nrows, ncols}, type: type, data: %{ptr: t_ptr}}}
+
+        {:ok,
+         %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: t_ptr}}}
 
       {:error, reason} ->
         cleanup_descriptor(desc_ptr)
@@ -278,7 +283,12 @@ defmodule GraphBLAS.Backend.SuiteSparse do
   end
 
   @impl GraphBLAS.Backend
-  def matrix_set(%Matrix{shape: {nrows, ncols}, type: type, data: %{ptr: ptr}}, row, col, value) do
+  def matrix_set(
+        %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: ptr}},
+        row,
+        col,
+        value
+      ) do
     with :ok <- validate_index(row, nrows),
          :ok <- validate_index(col, ncols) do
       result =
@@ -290,7 +300,8 @@ defmodule GraphBLAS.Backend.SuiteSparse do
 
       case result do
         :ok ->
-          {:ok, %Matrix{shape: {nrows, ncols}, type: type, data: %{ptr: ptr}}}
+          {:ok,
+           %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
 
         {:error, reason} ->
           Error.error({:backend_error, __MODULE__, reason})
@@ -299,7 +310,11 @@ defmodule GraphBLAS.Backend.SuiteSparse do
   end
 
   @impl GraphBLAS.Backend
-  def matrix_extract(%Matrix{shape: {nrows, ncols}, type: type, data: %{ptr: ptr}}, row, col) do
+  def matrix_extract(
+        %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: ptr}},
+        row,
+        col
+      ) do
     with :ok <- validate_index(row, nrows),
          :ok <- validate_index(col, ncols) do
       result =
@@ -319,10 +334,16 @@ defmodule GraphBLAS.Backend.SuiteSparse do
   end
 
   @impl GraphBLAS.Backend
-  def matrix_dup(%Matrix{shape: {nrows, ncols}, type: type, data: %{ptr: ptr}}) do
+  def matrix_dup(%Matrix{
+        shape: {nrows, ncols},
+        type: type,
+        backend: __MODULE__,
+        data: %{ptr: ptr}
+      }) do
     case GraphBLAS.Native.matrix_dup(ptr) do
       new_ptr when is_integer(new_ptr) ->
-        {:ok, %Matrix{shape: {nrows, ncols}, type: type, data: %{ptr: new_ptr}}}
+        {:ok,
+         %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: new_ptr}}}
 
       {:error, reason} ->
         Error.error({:backend_error, __MODULE__, reason})
@@ -340,7 +361,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
 
       case GraphBLAS.Native.vector_new(size, code) do
         ptr when is_integer(ptr) ->
-          {:ok, %Vector{size: size, type: type, data: %{ptr: ptr}}}
+          {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
 
         {:error, reason} ->
           Error.error({:backend_error, __MODULE__, reason})
@@ -417,7 +438,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
         ptr when is_integer(ptr) ->
           cleanup_descriptor(desc_ptr)
           size = GraphBLAS.Native.vector_size(ptr)
-          {:ok, %Vector{size: size, type: sr.type, data: %{ptr: ptr}}}
+          {:ok, %Vector{size: size, type: sr.type, backend: __MODULE__, data: %{ptr: ptr}}}
 
         {:error, reason} ->
           cleanup_descriptor(desc_ptr)
@@ -442,7 +463,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       case GraphBLAS.Native.vector_ewise_add(a_ptr, b_ptr, monoid_code, mask_ptr, desc_ptr) do
         ptr when is_integer(ptr) ->
           cleanup_descriptor(desc_ptr)
-          {:ok, %Vector{size: size, type: type, data: %{ptr: ptr}}}
+          {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
 
         {:error, reason} ->
           cleanup_descriptor(desc_ptr)
@@ -467,7 +488,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       case GraphBLAS.Native.vector_ewise_mult(a_ptr, b_ptr, monoid_code, mask_ptr, desc_ptr) do
         ptr when is_integer(ptr) ->
           cleanup_descriptor(desc_ptr)
-          {:ok, %Vector{size: size, type: type, data: %{ptr: ptr}}}
+          {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
 
         {:error, reason} ->
           cleanup_descriptor(desc_ptr)
@@ -517,7 +538,11 @@ defmodule GraphBLAS.Backend.SuiteSparse do
   end
 
   @impl GraphBLAS.Backend
-  def vector_set(%Vector{size: size, type: type, data: %{ptr: ptr}}, index, value) do
+  def vector_set(
+        %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}},
+        index,
+        value
+      ) do
     with :ok <- validate_index(index, size) do
       result =
         case type do
@@ -528,7 +553,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
 
       case result do
         :ok ->
-          {:ok, %Vector{size: size, type: type, data: %{ptr: ptr}}}
+          {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
 
         {:error, reason} ->
           Error.error({:backend_error, __MODULE__, reason})
@@ -537,7 +562,10 @@ defmodule GraphBLAS.Backend.SuiteSparse do
   end
 
   @impl GraphBLAS.Backend
-  def vector_extract(%Vector{size: size, type: type, data: %{ptr: ptr}}, index) do
+  def vector_extract(
+        %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}},
+        index
+      ) do
     with :ok <- validate_index(index, size) do
       result =
         case type do
@@ -556,10 +584,10 @@ defmodule GraphBLAS.Backend.SuiteSparse do
   end
 
   @impl GraphBLAS.Backend
-  def vector_dup(%Vector{size: size, type: type, data: %{ptr: ptr}}) do
+  def vector_dup(%Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}) do
     case GraphBLAS.Native.vector_dup(ptr) do
       new_ptr when is_integer(new_ptr) ->
-        {:ok, %Vector{size: size, type: type, data: %{ptr: new_ptr}}}
+        {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: new_ptr}}}
 
       {:error, reason} ->
         Error.error({:backend_error, __MODULE__, reason})
@@ -749,7 +777,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
     end
   end
 
-  defp resolve_descriptor_flags(desc, skip_transpose, has_mask, mask_complement) do
+  defp resolve_descriptor_flags(desc, skip_transpose, has_mask, _mask_complement) do
     desc_struct? = is_struct(desc, GraphBLAS.Descriptor)
 
     inp0_tran = not skip_transpose and desc_struct? and desc.inp0_transpose == :transpose
@@ -782,7 +810,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
 
     case build_result do
       :ok ->
-        {:ok, %Matrix{shape: {nrows, ncols}, type: type, data: %{ptr: ptr}}}
+        {:ok, %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
 
       {:error, reason} ->
         GraphBLAS.Native.matrix_free(ptr)
@@ -802,7 +830,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
 
     case build_result do
       :ok ->
-        {:ok, %Vector{size: size, type: type, data: %{ptr: ptr}}}
+        {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
 
       {:error, reason} ->
         GraphBLAS.Native.vector_free(ptr)

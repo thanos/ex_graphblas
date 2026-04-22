@@ -49,7 +49,7 @@ defmodule GraphBLAS.Backend.Elixir do
     with :ok <- validate_dimensions(nrows, ncols),
          :ok <- Types.validate_scalar_type(type) do
       data = %{entries: %{}, nrows: nrows, ncols: ncols, type: type}
-      {:ok, %Matrix{shape: {nrows, ncols}, type: type, data: data}}
+      {:ok, %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: data}}
     end
   end
 
@@ -61,7 +61,7 @@ defmodule GraphBLAS.Backend.Elixir do
       monoid = Keyword.get(opts, :combine_monoid, :plus)
       combined = combine_coo_entries(entries, monoid)
       data = %{entries: combined, nrows: nrows, ncols: ncols, type: type}
-      {:ok, %Matrix{shape: {nrows, ncols}, type: type, data: data}}
+      {:ok, %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: data}}
     end
   end
 
@@ -104,7 +104,7 @@ defmodule GraphBLAS.Backend.Elixir do
         result_entries = mxm_multiply(a, b, multiply_fn, add_fn)
         masked = apply_matrix_mask(result_entries, opts, nrows_a, ncols_b)
         data = %{entries: masked, nrows: nrows_a, ncols: ncols_b, type: sr.type}
-        {:ok, %Matrix{shape: {nrows_a, ncols_b}, type: sr.type, data: data}}
+        {:ok, %Matrix{shape: {nrows_a, ncols_b}, type: sr.type, backend: __MODULE__, data: data}}
       end
     end
   end
@@ -122,7 +122,7 @@ defmodule GraphBLAS.Backend.Elixir do
         nrows = elem(matrix.shape, 0)
         masked = apply_vector_mask(result_entries, opts, nrows)
         data = %{entries: masked, size: nrows, type: sr.type}
-        {:ok, %Vector{size: nrows, type: sr.type, data: data}}
+        {:ok, %Vector{size: nrows, type: sr.type, backend: __MODULE__, data: data}}
       end
     end
   end
@@ -140,7 +140,7 @@ defmodule GraphBLAS.Backend.Elixir do
       ncols = elem(a.shape, 1)
       masked = apply_matrix_mask(combined, opts, nrows, ncols)
       data = %{entries: masked, nrows: nrows, ncols: ncols, type: a.type}
-      {:ok, %Matrix{shape: a.shape, type: a.type, data: data}}
+      {:ok, %Matrix{shape: a.shape, type: a.type, backend: __MODULE__, data: data}}
     end
   end
 
@@ -160,7 +160,7 @@ defmodule GraphBLAS.Backend.Elixir do
       masked = apply_matrix_mask(intersection, opts, nrows, ncols)
       data = %{entries: masked, nrows: nrows, ncols: ncols, type: a.type}
 
-      {:ok, %Matrix{shape: a.shape, type: a.type, data: data}}
+      {:ok, %Matrix{shape: a.shape, type: a.type, backend: __MODULE__, data: data}}
     end
   end
 
@@ -179,7 +179,7 @@ defmodule GraphBLAS.Backend.Elixir do
       nrows = elem(matrix.shape, 0)
       masked = apply_vector_mask(result_entries, opts, nrows)
       data = %{entries: masked, size: nrows, type: matrix.type}
-      {:ok, %Vector{size: nrows, type: matrix.type, data: data}}
+      {:ok, %Vector{size: nrows, type: matrix.type, backend: __MODULE__, data: data}}
     end
   end
 
@@ -194,7 +194,7 @@ defmodule GraphBLAS.Backend.Elixir do
 
     masked = apply_matrix_mask(result_entries, opts, ncols, nrows)
     data = %{entries: masked, nrows: ncols, ncols: nrows, type: matrix.type}
-    {:ok, %Matrix{shape: {ncols, nrows}, type: matrix.type, data: data}}
+    {:ok, %Matrix{shape: {ncols, nrows}, type: matrix.type, backend: __MODULE__, data: data}}
   end
 
   @impl GraphBLAS.Backend
@@ -220,7 +220,7 @@ defmodule GraphBLAS.Backend.Elixir do
     with :ok <- validate_size(size),
          :ok <- Types.validate_scalar_type(type) do
       data = %{entries: %{}, size: size, type: type}
-      {:ok, %Vector{size: size, type: type, data: data}}
+      {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: data}}
     end
   end
 
@@ -232,7 +232,7 @@ defmodule GraphBLAS.Backend.Elixir do
       monoid = Keyword.get(opts, :combine_monoid, :plus)
       combined = combine_vector_entries(entries, monoid)
       data = %{entries: combined, size: size, type: type}
-      {:ok, %Vector{size: size, type: type, data: data}}
+      {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: data}}
     end
   end
 
@@ -270,7 +270,7 @@ defmodule GraphBLAS.Backend.Elixir do
         result_size = elem(matrix.shape, 1)
         masked = apply_vector_mask(result_entries, opts, result_size)
         data_result = %{entries: masked, size: result_size, type: sr.type}
-        {:ok, %Vector{size: result_size, type: sr.type, data: data_result}}
+        {:ok, %Vector{size: result_size, type: sr.type, backend: __MODULE__, data: data_result}}
       end
     end
   end
@@ -286,7 +286,7 @@ defmodule GraphBLAS.Backend.Elixir do
 
       masked = apply_vector_mask(combined, opts, a.size)
       data = %{entries: masked, size: a.size, type: a.type}
-      {:ok, %Vector{size: a.size, type: a.type, data: data}}
+      {:ok, %Vector{size: a.size, type: a.type, backend: __MODULE__, data: data}}
     end
   end
 
@@ -301,7 +301,7 @@ defmodule GraphBLAS.Backend.Elixir do
 
       masked = apply_vector_mask(intersection, opts, a.size)
       data = %{entries: masked, size: a.size, type: a.type}
-      {:ok, %Vector{size: a.size, type: a.type, data: data}}
+      {:ok, %Vector{size: a.size, type: a.type, backend: __MODULE__, data: data}}
     end
   end
 
@@ -491,16 +491,32 @@ defmodule GraphBLAS.Backend.Elixir do
   #############################################################################
 
   @impl GraphBLAS.Backend
-  def matrix_set(%Matrix{shape: {nrows, ncols}, type: type, data: data}, row, col, value) do
+  def matrix_set(
+        %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: data},
+        row,
+        col,
+        value
+      ) do
     with :ok <- validate_index(row, nrows),
          :ok <- validate_index(col, ncols) do
       updated = Map.put(data.entries, {row, col}, value)
-      {:ok, %Matrix{shape: {nrows, ncols}, type: type, data: %{data | entries: updated}}}
+
+      {:ok,
+       %Matrix{
+         shape: {nrows, ncols},
+         type: type,
+         backend: __MODULE__,
+         data: %{data | entries: updated}
+       }}
     end
   end
 
   @impl GraphBLAS.Backend
-  def matrix_extract(%Matrix{shape: {nrows, ncols}, type: type, data: data}, row, col) do
+  def matrix_extract(
+        %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: data},
+        row,
+        col
+      ) do
     with :ok <- validate_index(row, nrows),
          :ok <- validate_index(col, ncols) do
       {:ok, Map.get(data.entries, {row, col}, default_value(type))}
@@ -509,19 +525,26 @@ defmodule GraphBLAS.Backend.Elixir do
 
   @impl GraphBLAS.Backend
   def matrix_dup(%Matrix{} = matrix) do
-    {:ok, %Matrix{matrix | data: %{matrix.data | entries: Map.new(matrix.data.entries)}}}
+    {:ok,
+     %Matrix{
+       matrix
+       | backend: __MODULE__,
+         data: %{matrix.data | entries: Map.new(matrix.data.entries)}
+     }}
   end
 
   @impl GraphBLAS.Backend
-  def vector_set(%Vector{size: size, type: type, data: data}, index, value) do
+  def vector_set(%Vector{size: size, type: type, backend: __MODULE__, data: data}, index, value) do
     with :ok <- validate_index(index, size) do
       updated = Map.put(data.entries, index, value)
-      {:ok, %Vector{size: size, type: type, data: %{data | entries: updated}}}
+
+      {:ok,
+       %Vector{size: size, type: type, backend: __MODULE__, data: %{data | entries: updated}}}
     end
   end
 
   @impl GraphBLAS.Backend
-  def vector_extract(%Vector{size: size, type: type, data: data}, index) do
+  def vector_extract(%Vector{size: size, type: type, backend: __MODULE__, data: data}, index) do
     with :ok <- validate_index(index, size) do
       {:ok, Map.get(data.entries, index, default_value(type))}
     end
@@ -529,7 +552,12 @@ defmodule GraphBLAS.Backend.Elixir do
 
   @impl GraphBLAS.Backend
   def vector_dup(%Vector{} = vector) do
-    {:ok, %Vector{vector | data: %{vector.data | entries: Map.new(vector.data.entries)}}}
+    {:ok,
+     %Vector{
+       vector
+       | backend: __MODULE__,
+         data: %{vector.data | entries: Map.new(vector.data.entries)}
+     }}
   end
 
   #############################################################################

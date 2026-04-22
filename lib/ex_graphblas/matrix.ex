@@ -39,11 +39,12 @@ defmodule GraphBLAS.Matrix do
   @type t :: %__MODULE__{
           shape: Types.shape(),
           type: Types.scalar_type(),
+          backend: module(),
           data: Backend.backend_data()
         }
 
   @enforce_keys [:shape, :type, :data]
-  defstruct [:shape, :type, :data]
+  defstruct [:shape, :type, :backend, :data]
 
   @doc """
   Creates an empty sparse matrix with the given dimensions and scalar type.
@@ -126,10 +127,11 @@ defmodule GraphBLAS.Matrix do
 
   In a sparse matrix, this is the count of explicitly stored entries,
   not the product of dimensions.
+
+  Dispatches to the backend that created the matrix.
   """
   @spec nvals(t()) :: {:ok, non_neg_integer()} | {:error, Error.t()}
-  def nvals(%__MODULE__{} = matrix) do
-    backend = Config.resolve_backend([])
+  def nvals(%__MODULE__{backend: backend} = matrix) do
     backend.matrix_nvals(matrix)
   end
 
@@ -138,10 +140,11 @@ defmodule GraphBLAS.Matrix do
 
   Returns a sorted list of the non-default entries. The sort order is
   row-major (row first, then column).
+
+  Dispatches to the backend that created the matrix.
   """
   @spec to_coo(t()) :: {:ok, [Types.coo_entry()]} | {:error, Error.t()}
-  def to_coo(%__MODULE__{} = matrix) do
-    backend = Config.resolve_backend([])
+  def to_coo(%__MODULE__{backend: backend} = matrix) do
     backend.matrix_to_coo(matrix)
   end
 
@@ -261,8 +264,7 @@ defmodule GraphBLAS.Matrix do
 
   """
   @spec to_dense(t()) :: {:ok, [[term()]]} | {:error, Error.t()}
-  def to_dense(%__MODULE__{} = matrix) do
-    backend = Config.resolve_backend([])
+  def to_dense(%__MODULE__{backend: backend} = matrix) do
     backend.matrix_to_dense(matrix)
   end
 
@@ -278,8 +280,7 @@ defmodule GraphBLAS.Matrix do
   """
   @spec set(t(), non_neg_integer(), non_neg_integer(), term(), Types.opts()) ::
           {:ok, t()} | {:error, Error.t()}
-  def set(%__MODULE__{} = matrix, row, col, value, opts \\ []) do
-    backend = Config.resolve_backend(opts)
+  def set(%__MODULE__{backend: backend} = matrix, row, col, value, _opts \\ []) do
     backend.matrix_set(matrix, row, col, value)
   end
 
@@ -297,8 +298,7 @@ defmodule GraphBLAS.Matrix do
   """
   @spec extract(t(), non_neg_integer(), non_neg_integer(), Types.opts()) ::
           {:ok, term()} | {:error, Error.t()}
-  def extract(%__MODULE__{} = matrix, row, col, opts \\ []) do
-    backend = Config.resolve_backend(opts)
+  def extract(%__MODULE__{backend: backend} = matrix, row, col, _opts \\ []) do
     backend.matrix_extract(matrix, row, col)
   end
 

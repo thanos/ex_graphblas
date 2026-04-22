@@ -18,11 +18,20 @@ defmodule GraphBLAS.Native do
   GC via Zigler resources once the module boundary is resolved.
   """
 
+  @suitesparse_include_path Application.compile_env(
+                              :ex_graphblas,
+                              :suitesparse_include_path,
+                              System.get_env(
+                                "SUITESPARSE_INCLUDE_PATH",
+                                "/opt/homebrew/include/suitesparse"
+                              )
+                            )
+
   use Zig,
     otp_app: :ex_graphblas,
     c: [
       link_lib: {:system, "graphblas"},
-      include_dirs: "/opt/homebrew/include/suitesparse"
+      include_dirs: @suitesparse_include_path
     ],
     nifs: [
       # Lifecycle

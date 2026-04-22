@@ -29,11 +29,12 @@ defmodule GraphBLAS.Vector do
   @type t :: %__MODULE__{
           size: non_neg_integer(),
           type: Types.scalar_type(),
+          backend: module(),
           data: Backend.backend_data()
         }
 
   @enforce_keys [:size, :type, :data]
-  defstruct [:size, :type, :data]
+  defstruct [:size, :type, :backend, :data]
 
   @doc """
   Creates an empty sparse vector with the given size and scalar type.
@@ -75,19 +76,21 @@ defmodule GraphBLAS.Vector do
 
   @doc """
   Returns the number of stored (non-default) values in the vector.
+
+  Dispatches to the backend that created the vector.
   """
   @spec nvals(t()) :: {:ok, non_neg_integer()} | {:error, Error.t()}
-  def nvals(%__MODULE__{} = vector) do
-    backend = Config.resolve_backend([])
+  def nvals(%__MODULE__{backend: backend} = vector) do
     backend.vector_nvals(vector)
   end
 
   @doc """
   Extracts the stored entries as `{index, value}` pairs.
+
+  Dispatches to the backend that created the vector.
   """
   @spec to_entries(t()) :: {:ok, [Types.vector_entry()]} | {:error, Error.t()}
-  def to_entries(%__MODULE__{} = vector) do
-    backend = Config.resolve_backend([])
+  def to_entries(%__MODULE__{backend: backend} = vector) do
     backend.vector_to_entries(vector)
   end
 
@@ -156,8 +159,7 @@ defmodule GraphBLAS.Vector do
 
   """
   @spec to_list(t()) :: {:ok, [term()]} | {:error, Error.t()}
-  def to_list(%__MODULE__{} = vector) do
-    backend = Config.resolve_backend([])
+  def to_list(%__MODULE__{backend: backend} = vector) do
     backend.vector_to_list(vector)
   end
 
@@ -173,8 +175,7 @@ defmodule GraphBLAS.Vector do
   """
   @spec set(t(), non_neg_integer(), term(), Types.opts()) ::
           {:ok, t()} | {:error, Error.t()}
-  def set(%__MODULE__{} = vector, index, value, opts \\ []) do
-    backend = Config.resolve_backend(opts)
+  def set(%__MODULE__{backend: backend} = vector, index, value, _opts \\ []) do
     backend.vector_set(vector, index, value)
   end
 
@@ -192,8 +193,7 @@ defmodule GraphBLAS.Vector do
   """
   @spec extract(t(), non_neg_integer(), Types.opts()) ::
           {:ok, term()} | {:error, Error.t()}
-  def extract(%__MODULE__{} = vector, index, opts \\ []) do
-    backend = Config.resolve_backend(opts)
+  def extract(%__MODULE__{backend: backend} = vector, index, _opts \\ []) do
     backend.vector_extract(vector, index)
   end
 

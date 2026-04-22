@@ -10,10 +10,13 @@ defmodule GraphBLAS.MixProject do
   to swappable backends (initially SuiteSparse:GraphBLAS via Zigler).
   """
 
+  @version "0.2.0"
+  @source_url "https://github.com/thanos/ex_graphblas"
+
   def project do
     [
       app: :ex_graphblas,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -27,8 +30,11 @@ defmodule GraphBLAS.MixProject do
       ],
       docs: [
         main: "GraphBLAS",
-        extras: ["README.md"]
-      ]
+        extras: ["README.md", "LICENSE"]
+      ],
+      package: package(),
+      description: description(),
+      homepage_url: "https://github.com/thanos/ex_graphblas"
     ]
   end
 
@@ -51,5 +57,20 @@ defmodule GraphBLAS.MixProject do
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(:dev), do: ["lib", "bench"]
   defp elixirc_paths(_), do: ["lib"]
+
+  defp description do
+    "Sparse linear algebra and graph computation in Elixir, inspired by the GraphBLAS standard."
+  end
+
+  defp package do
+    [
+      licenses: ["Apache-2.0"],
+      maintainers: ["Thanos Vassilakis"],
+      links: %{"GitHub" => @source_url},
+      # files: ~w(lib .formatter.exs mix.exs README.md LICENSE CHANGELOG.md),
+      exclude_patterns: ["bench", "docs", "guides", "plans", "prompts"]
+    ]
+  end
 end

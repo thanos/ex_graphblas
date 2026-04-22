@@ -200,7 +200,7 @@ defmodule GraphBLAS.Algorithm do
     backend = Config.resolve_backend(opts)
     {n, _} = adj.shape
 
-    {:ok, adj_coo} = ok(matrix_to_coo(adj))
+    {:ok, adj_coo} = ok(Matrix.to_coo(adj))
     lower_int = for {r, c, _v} <- adj_coo, r > c, do: {r, c, 1}
     full_int = for {r, c, _v} <- adj_coo, do: {r, c, 1}
 
@@ -412,7 +412,8 @@ defmodule GraphBLAS.Algorithm do
     fixed_point_loop(initial, step_fn, conv_fn, tol, 0, max_iter)
   end
 
-  defp fixed_point_loop(current, step_fn, conv_fn, tol, iter, max_iter) when iter >= max_iter do
+  defp fixed_point_loop(current, _step_fn, _conv_fn, _tol, iter, max_iter)
+       when iter >= max_iter do
     {:ok, current, %{iterations: iter, converged: false}}
   end
 
@@ -447,13 +448,13 @@ defmodule GraphBLAS.Algorithm do
   defp bool_to_int64(%Matrix{type: :int64} = m, _backend), do: {:ok, m}
 
   defp bool_to_int64(%Matrix{shape: {nrows, ncols}, type: :bool} = m, backend) do
-    {:ok, coo} = ok(matrix_to_coo(m))
+    {:ok, coo} = ok(Matrix.to_coo(m))
     int_coo = Enum.map(coo, fn {r, c, true} -> {r, c, 1} end)
     Matrix.from_coo(nrows, ncols, int_coo, :int64, backend: backend)
   end
 
   defp bool_to_int64(%Matrix{shape: {nrows, ncols}, type: :fp64} = m, backend) do
-    {:ok, coo} = ok(matrix_to_coo(m))
+    {:ok, coo} = ok(Matrix.to_coo(m))
     int_coo = Enum.map(coo, fn {r, c, v} -> {r, c, trunc(v)} end)
     Matrix.from_coo(nrows, ncols, int_coo, :int64, backend: backend)
   end
@@ -557,14 +558,14 @@ defmodule GraphBLAS.Algorithm do
   defp ok(:ok), do: :ok
 
   defp default_converged?(%Matrix{} = old, %Matrix{} = new, _tol) do
-    {:ok, old_coo} = ok(matrix_to_coo(old))
-    {:ok, new_coo} = ok(matrix_to_coo(new))
+    {:ok, old_coo} = ok(Matrix.to_coo(old))
+    {:ok, new_coo} = ok(Matrix.to_coo(new))
     Enum.sort(old_coo) == Enum.sort(new_coo)
   end
 
   defp default_converged?(%Vector{} = old, %Vector{} = new, tol) when tol > 0 do
-    {:ok, old_entries} = ok(vector_to_entries(old))
-    {:ok, new_entries} = ok(vector_to_entries(new))
+    {:ok, old_entries} = ok(Vector.to_entries(old))
+    {:ok, new_entries} = ok(Vector.to_entries(new))
     old_map = Map.new(old_entries)
     new_map = Map.new(new_entries)
 
@@ -576,29 +577,10 @@ defmodule GraphBLAS.Algorithm do
   end
 
   defp default_converged?(%Vector{} = old, %Vector{} = new, _tol) do
-    {:ok, old_entries} = ok(vector_to_entries(old))
-    {:ok, new_entries} = ok(vector_to_entries(new))
+    {:ok, old_entries} = ok(Vector.to_entries(old))
+    {:ok, new_entries} = ok(Vector.to_entries(new))
     Enum.sort(old_entries) == Enum.sort(new_entries)
   end
 
   defp default_converged?(_old, _new, _tol), do: false
-
-  defp vector_to_entries(%Vector{data: %{entries: entries}}) do
-    {:ok, Enum.sort_by(entries, fn {idx, _val} -> idx end)}
-  end
-
-  defp vector_to_entries(%Vector{data: %{ptr: _ptr}} = vec) do
-    SuiteSparse.vector_to_entries(vec)
-  end
-
-  defp matrix_to_coo(%Matrix{data: %{entries: entries}}) do
-    coo =
-      Enum.map(entries, fn {{r, c}, v} -> {r, c, v} end)
-
-    {:ok, Enum.sort_by(coo, fn {r, c, _v} -> {r, c} end)}
-  end
-
-  defp matrix_to_coo(%Matrix{data: %{ptr: _ptr}} = mat) do
-    SuiteSparse.matrix_to_coo(mat)
-  end
 end

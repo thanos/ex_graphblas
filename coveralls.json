@@ -1,5 +1,3 @@
 {
-  "skip_files": [
-    "lib/ex_graphblas/bench_data.ex"
-  ]
+  "skip_files": []
 }

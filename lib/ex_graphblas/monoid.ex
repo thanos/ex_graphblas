@@ -120,9 +120,7 @@ defmodule GraphBLAS.Monoid do
   def builtin(_), do: nil
 
   defp max_int(_, :int64), do: 9_223_372_036_854_775_807
-  defp max_int(_, :int32), do: 2_147_483_647
   defp min_int(_, :int64), do: -9_223_372_036_854_775_808
-  defp min_int(_, :int32), do: -2_147_483_648
 
   @doc """
   Returns the list of all built-in monoid name atoms.
