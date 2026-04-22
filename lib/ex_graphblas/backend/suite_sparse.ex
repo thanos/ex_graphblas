@@ -49,13 +49,11 @@ defmodule GraphBLAS.Backend.SuiteSparse do
          :ok <- validate_dimensions(nrows, ncols) do
       code = type_to_code(type)
 
-      case GraphBLAS.Native.matrix_new(nrows, ncols, code) do
-        ptr when is_integer(ptr) ->
-          {:ok,
-           %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
-
-        {:error, reason} ->
-          Error.error({:backend_error, __MODULE__, reason})
+      try do
+        ptr = GraphBLAS.Native.matrix_new(nrows, ncols, code)
+        {:ok, %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
+      rescue
+        e -> Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
@@ -66,22 +64,21 @@ defmodule GraphBLAS.Backend.SuiteSparse do
          :ok <- validate_dimensions(nrows, ncols) do
       code = type_to_code(type)
 
-      case GraphBLAS.Native.matrix_new(nrows, ncols, code) do
-        ptr when is_integer(ptr) ->
-          build_matrix_from_coo(ptr, nrows, ncols, entries, type)
-
-        {:error, reason} ->
-          Error.error({:backend_error, __MODULE__, reason})
+      try do
+        ptr = GraphBLAS.Native.matrix_new(nrows, ncols, code)
+        build_matrix_from_coo(ptr, nrows, ncols, entries, type)
+      rescue
+        e -> Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
 
   @impl GraphBLAS.Backend
   def matrix_nvals(%Matrix{data: %{ptr: ptr}}) do
-    case GraphBLAS.Native.matrix_nvals(ptr) do
-      n when is_integer(n) -> {:ok, n}
-      {:error, reason} -> Error.error({:backend_error, __MODULE__, reason})
-    end
+    n = GraphBLAS.Native.matrix_nvals(ptr)
+    {:ok, n}
+  rescue
+    e -> Error.error({:backend_error, __MODULE__, e})
   end
 
   @impl GraphBLAS.Backend
@@ -92,26 +89,19 @@ defmodule GraphBLAS.Backend.SuiteSparse do
 
   @impl GraphBLAS.Backend
   def matrix_to_coo(%Matrix{type: type, data: %{ptr: ptr}}) do
-    case GraphBLAS.Native.matrix_nvals(ptr) do
-      n when is_integer(n) ->
-        extract_result =
-          case type do
-            :int64 -> GraphBLAS.Native.matrix_extract_tuples_int64(ptr, n)
-            :fp64 -> GraphBLAS.Native.matrix_extract_tuples_fp64(ptr, n)
-            :bool -> GraphBLAS.Native.matrix_extract_tuples_bool(ptr, n)
-          end
+    n = GraphBLAS.Native.matrix_nvals(ptr)
 
-        case extract_result do
-          %{rows: rows, cols: cols, vals: vals, actual_nvals: _} ->
-            {:ok, Enum.zip_with([rows, cols, vals], fn [r, c, v] -> {r, c, v} end)}
+    extract_result =
+      case type do
+        :int64 -> GraphBLAS.Native.matrix_extract_tuples_int64(ptr, n)
+        :fp64 -> GraphBLAS.Native.matrix_extract_tuples_fp64(ptr, n)
+        :bool -> GraphBLAS.Native.matrix_extract_tuples_bool(ptr, n)
+      end
 
-          {:error, reason} ->
-            Error.error({:backend_error, __MODULE__, reason})
-        end
-
-      {:error, reason} ->
-        Error.error({:backend_error, __MODULE__, reason})
-    end
+    %{rows: rows, cols: cols, vals: vals, actual_nvals: _} = extract_result
+    {:ok, Enum.zip_with([rows, cols, vals], fn [r, c, v] -> {r, c, v} end)}
+  rescue
+    e -> Error.error({:backend_error, __MODULE__, e})
   end
 
   @impl GraphBLAS.Backend
@@ -125,21 +115,20 @@ defmodule GraphBLAS.Backend.SuiteSparse do
 
       mask_ptr = extract_mask_ptr(opts)
       mask_comp = mask_is_complement?(opts)
-      # Only build descriptor for mask/output fields, not transposition
       desc_ptr = build_descriptor_ptr(opts, mask_comp, skip_transpose: true)
 
-      case GraphBLAS.Native.matrix_mxm(a_ptr, b_ptr, semiring_code, mask_ptr, desc_ptr) do
-        ptr when is_integer(ptr) ->
-          cleanup_descriptor(desc_ptr)
-          nrows = GraphBLAS.Native.matrix_nrows(ptr)
-          ncols = GraphBLAS.Native.matrix_ncols(ptr)
+      try do
+        ptr = GraphBLAS.Native.matrix_mxm(a_ptr, b_ptr, semiring_code, mask_ptr, desc_ptr)
+        cleanup_descriptor(desc_ptr)
+        nrows = GraphBLAS.Native.matrix_nrows(ptr)
+        ncols = GraphBLAS.Native.matrix_ncols(ptr)
 
-          {:ok,
-           %Matrix{shape: {nrows, ncols}, type: sr.type, backend: __MODULE__, data: %{ptr: ptr}}}
-
-        {:error, reason} ->
+        {:ok,
+         %Matrix{shape: {nrows, ncols}, type: sr.type, backend: __MODULE__, data: %{ptr: ptr}}}
+      rescue
+        e ->
           cleanup_descriptor(desc_ptr)
-          Error.error({:backend_error, __MODULE__, reason})
+          Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
@@ -156,15 +145,15 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       mask_comp = mask_is_complement?(opts)
       desc_ptr = build_descriptor_ptr(opts, mask_comp, skip_transpose: true)
 
-      case GraphBLAS.Native.matrix_mxv(m_ptr, v_ptr, semiring_code, mask_ptr, desc_ptr) do
-        ptr when is_integer(ptr) ->
+      try do
+        ptr = GraphBLAS.Native.matrix_mxv(m_ptr, v_ptr, semiring_code, mask_ptr, desc_ptr)
+        cleanup_descriptor(desc_ptr)
+        size = GraphBLAS.Native.vector_size(ptr)
+        {:ok, %Vector{size: size, type: sr.type, backend: __MODULE__, data: %{ptr: ptr}}}
+      rescue
+        e ->
           cleanup_descriptor(desc_ptr)
-          size = GraphBLAS.Native.vector_size(ptr)
-          {:ok, %Vector{size: size, type: sr.type, backend: __MODULE__, data: %{ptr: ptr}}}
-
-        {:error, reason} ->
-          cleanup_descriptor(desc_ptr)
-          Error.error({:backend_error, __MODULE__, reason})
+          Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
@@ -182,14 +171,14 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       mask_comp = mask_is_complement?(opts)
       desc_ptr = build_descriptor_ptr(opts, mask_comp)
 
-      case GraphBLAS.Native.matrix_ewise_add(a_ptr, b_ptr, monoid_code, mask_ptr, desc_ptr) do
-        ptr when is_integer(ptr) ->
+      try do
+        ptr = GraphBLAS.Native.matrix_ewise_add(a_ptr, b_ptr, monoid_code, mask_ptr, desc_ptr)
+        cleanup_descriptor(desc_ptr)
+        {:ok, %Matrix{shape: a.shape, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
+      rescue
+        e ->
           cleanup_descriptor(desc_ptr)
-          {:ok, %Matrix{shape: a.shape, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
-
-        {:error, reason} ->
-          cleanup_descriptor(desc_ptr)
-          Error.error({:backend_error, __MODULE__, reason})
+          Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
@@ -207,14 +196,14 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       mask_comp = mask_is_complement?(opts)
       desc_ptr = build_descriptor_ptr(opts, mask_comp)
 
-      case GraphBLAS.Native.matrix_ewise_mult(a_ptr, b_ptr, monoid_code, mask_ptr, desc_ptr) do
-        ptr when is_integer(ptr) ->
+      try do
+        ptr = GraphBLAS.Native.matrix_ewise_mult(a_ptr, b_ptr, monoid_code, mask_ptr, desc_ptr)
+        cleanup_descriptor(desc_ptr)
+        {:ok, %Matrix{shape: a.shape, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
+      rescue
+        e ->
           cleanup_descriptor(desc_ptr)
-          {:ok, %Matrix{shape: a.shape, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
-
-        {:error, reason} ->
-          cleanup_descriptor(desc_ptr)
-          Error.error({:backend_error, __MODULE__, reason})
+          Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
@@ -227,15 +216,15 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       mask_comp = mask_is_complement?(opts)
       desc_ptr = build_descriptor_ptr(opts, mask_comp)
 
-      case GraphBLAS.Native.matrix_reduce_to_vector(ptr, monoid_code, mask_ptr, desc_ptr) do
-        v_ptr when is_integer(v_ptr) ->
+      try do
+        v_ptr = GraphBLAS.Native.matrix_reduce_to_vector(ptr, monoid_code, mask_ptr, desc_ptr)
+        cleanup_descriptor(desc_ptr)
+        size = GraphBLAS.Native.vector_size(v_ptr)
+        {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: v_ptr}}}
+      rescue
+        e ->
           cleanup_descriptor(desc_ptr)
-          size = GraphBLAS.Native.vector_size(v_ptr)
-          {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: v_ptr}}}
-
-        {:error, reason} ->
-          cleanup_descriptor(desc_ptr)
-          Error.error({:backend_error, __MODULE__, reason})
+          Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
@@ -246,18 +235,16 @@ defmodule GraphBLAS.Backend.SuiteSparse do
     mask_comp = mask_is_complement?(opts)
     desc_ptr = build_descriptor_ptr(opts, mask_comp)
 
-    case GraphBLAS.Native.matrix_transpose(ptr, mask_ptr, desc_ptr) do
-      t_ptr when is_integer(t_ptr) ->
+    try do
+      t_ptr = GraphBLAS.Native.matrix_transpose(ptr, mask_ptr, desc_ptr)
+      cleanup_descriptor(desc_ptr)
+      nrows = GraphBLAS.Native.matrix_nrows(t_ptr)
+      ncols = GraphBLAS.Native.matrix_ncols(t_ptr)
+      {:ok, %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: t_ptr}}}
+    rescue
+      e ->
         cleanup_descriptor(desc_ptr)
-        nrows = GraphBLAS.Native.matrix_nrows(t_ptr)
-        ncols = GraphBLAS.Native.matrix_ncols(t_ptr)
-
-        {:ok,
-         %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: t_ptr}}}
-
-      {:error, reason} ->
-        cleanup_descriptor(desc_ptr)
-        Error.error({:backend_error, __MODULE__, reason})
+        Error.error({:backend_error, __MODULE__, e})
     end
   end
 
@@ -291,20 +278,16 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       ) do
     with :ok <- validate_index(row, nrows),
          :ok <- validate_index(col, ncols) do
-      result =
+      try do
         case type do
           :int64 -> GraphBLAS.Native.matrix_set_int64(ptr, row, col, value)
           :fp64 -> GraphBLAS.Native.matrix_set_fp64(ptr, row, col, value)
           :bool -> GraphBLAS.Native.matrix_set_bool(ptr, row, col, value)
         end
 
-      case result do
-        :ok ->
-          {:ok,
-           %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
-
-        {:error, reason} ->
-          Error.error({:backend_error, __MODULE__, reason})
+        {:ok, %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
+      rescue
+        e -> Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
@@ -317,18 +300,17 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       ) do
     with :ok <- validate_index(row, nrows),
          :ok <- validate_index(col, ncols) do
-      result =
-        case type do
-          :int64 -> GraphBLAS.Native.matrix_extract_int64(ptr, row, col)
-          :fp64 -> GraphBLAS.Native.matrix_extract_fp64(ptr, row, col)
-          :bool -> GraphBLAS.Native.matrix_extract_bool(ptr, row, col)
-        end
+      try do
+        value =
+          case type do
+            :int64 -> GraphBLAS.Native.matrix_extract_int64(ptr, row, col)
+            :fp64 -> GraphBLAS.Native.matrix_extract_fp64(ptr, row, col)
+            :bool -> GraphBLAS.Native.matrix_extract_bool(ptr, row, col)
+          end
 
-      case result do
-        value when is_integer(value) -> {:ok, value}
-        value when is_float(value) -> {:ok, value}
-        value when is_boolean(value) -> {:ok, value}
-        {:error, reason} -> Error.error({:backend_error, __MODULE__, reason})
+        {:ok, value}
+      rescue
+        e -> Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
@@ -340,14 +322,11 @@ defmodule GraphBLAS.Backend.SuiteSparse do
         backend: __MODULE__,
         data: %{ptr: ptr}
       }) do
-    case GraphBLAS.Native.matrix_dup(ptr) do
-      new_ptr when is_integer(new_ptr) ->
-        {:ok,
-         %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: new_ptr}}}
+    new_ptr = GraphBLAS.Native.matrix_dup(ptr)
 
-      {:error, reason} ->
-        Error.error({:backend_error, __MODULE__, reason})
-    end
+    {:ok, %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: new_ptr}}}
+  rescue
+    e -> Error.error({:backend_error, __MODULE__, e})
   end
 
   #############################################################################
@@ -359,12 +338,11 @@ defmodule GraphBLAS.Backend.SuiteSparse do
     with :ok <- validate_type(type) do
       code = type_to_code(type)
 
-      case GraphBLAS.Native.vector_new(size, code) do
-        ptr when is_integer(ptr) ->
-          {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
-
-        {:error, reason} ->
-          Error.error({:backend_error, __MODULE__, reason})
+      try do
+        ptr = GraphBLAS.Native.vector_new(size, code)
+        {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
+      rescue
+        e -> Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
@@ -374,22 +352,21 @@ defmodule GraphBLAS.Backend.SuiteSparse do
     with :ok <- validate_type(type) do
       code = type_to_code(type)
 
-      case GraphBLAS.Native.vector_new(size, code) do
-        ptr when is_integer(ptr) ->
-          build_vector_from_entries(ptr, size, entries, type)
-
-        {:error, reason} ->
-          Error.error({:backend_error, __MODULE__, reason})
+      try do
+        ptr = GraphBLAS.Native.vector_new(size, code)
+        build_vector_from_entries(ptr, size, entries, type)
+      rescue
+        e -> Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
 
   @impl GraphBLAS.Backend
   def vector_nvals(%Vector{data: %{ptr: ptr}}) do
-    case GraphBLAS.Native.vector_nvals(ptr) do
-      n when is_integer(n) -> {:ok, n}
-      {:error, reason} -> Error.error({:backend_error, __MODULE__, reason})
-    end
+    n = GraphBLAS.Native.vector_nvals(ptr)
+    {:ok, n}
+  rescue
+    e -> Error.error({:backend_error, __MODULE__, e})
   end
 
   @impl GraphBLAS.Backend
@@ -400,26 +377,19 @@ defmodule GraphBLAS.Backend.SuiteSparse do
 
   @impl GraphBLAS.Backend
   def vector_to_entries(%Vector{type: type, data: %{ptr: ptr}}) do
-    case GraphBLAS.Native.vector_nvals(ptr) do
-      n when is_integer(n) ->
-        extract_result =
-          case type do
-            :int64 -> GraphBLAS.Native.vector_extract_tuples_int64(ptr, n)
-            :fp64 -> GraphBLAS.Native.vector_extract_tuples_fp64(ptr, n)
-            :bool -> GraphBLAS.Native.vector_extract_tuples_bool(ptr, n)
-          end
+    n = GraphBLAS.Native.vector_nvals(ptr)
 
-        case extract_result do
-          %{indices: indices, vals: vals, actual_nvals: _} ->
-            {:ok, Enum.zip_with([indices, vals], fn [i, v] -> {i, v} end)}
+    extract_result =
+      case type do
+        :int64 -> GraphBLAS.Native.vector_extract_tuples_int64(ptr, n)
+        :fp64 -> GraphBLAS.Native.vector_extract_tuples_fp64(ptr, n)
+        :bool -> GraphBLAS.Native.vector_extract_tuples_bool(ptr, n)
+      end
 
-          {:error, reason} ->
-            Error.error({:backend_error, __MODULE__, reason})
-        end
-
-      {:error, reason} ->
-        Error.error({:backend_error, __MODULE__, reason})
-    end
+    %{indices: indices, vals: vals, actual_nvals: _} = extract_result
+    {:ok, Enum.zip_with([indices, vals], fn [i, v] -> {i, v} end)}
+  rescue
+    e -> Error.error({:backend_error, __MODULE__, e})
   end
 
   @impl GraphBLAS.Backend
@@ -434,15 +404,15 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       mask_comp = mask_is_complement?(opts)
       desc_ptr = build_descriptor_ptr(opts, mask_comp, skip_transpose: true)
 
-      case GraphBLAS.Native.vector_vxm(v_ptr, m_ptr, semiring_code, mask_ptr, desc_ptr) do
-        ptr when is_integer(ptr) ->
+      try do
+        ptr = GraphBLAS.Native.vector_vxm(v_ptr, m_ptr, semiring_code, mask_ptr, desc_ptr)
+        cleanup_descriptor(desc_ptr)
+        size = GraphBLAS.Native.vector_size(ptr)
+        {:ok, %Vector{size: size, type: sr.type, backend: __MODULE__, data: %{ptr: ptr}}}
+      rescue
+        e ->
           cleanup_descriptor(desc_ptr)
-          size = GraphBLAS.Native.vector_size(ptr)
-          {:ok, %Vector{size: size, type: sr.type, backend: __MODULE__, data: %{ptr: ptr}}}
-
-        {:error, reason} ->
-          cleanup_descriptor(desc_ptr)
-          Error.error({:backend_error, __MODULE__, reason})
+          Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
@@ -460,14 +430,14 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       mask_comp = mask_is_complement?(opts)
       desc_ptr = build_descriptor_ptr(opts, mask_comp)
 
-      case GraphBLAS.Native.vector_ewise_add(a_ptr, b_ptr, monoid_code, mask_ptr, desc_ptr) do
-        ptr when is_integer(ptr) ->
+      try do
+        ptr = GraphBLAS.Native.vector_ewise_add(a_ptr, b_ptr, monoid_code, mask_ptr, desc_ptr)
+        cleanup_descriptor(desc_ptr)
+        {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
+      rescue
+        e ->
           cleanup_descriptor(desc_ptr)
-          {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
-
-        {:error, reason} ->
-          cleanup_descriptor(desc_ptr)
-          Error.error({:backend_error, __MODULE__, reason})
+          Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
@@ -485,14 +455,14 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       mask_comp = mask_is_complement?(opts)
       desc_ptr = build_descriptor_ptr(opts, mask_comp)
 
-      case GraphBLAS.Native.vector_ewise_mult(a_ptr, b_ptr, monoid_code, mask_ptr, desc_ptr) do
-        ptr when is_integer(ptr) ->
+      try do
+        ptr = GraphBLAS.Native.vector_ewise_mult(a_ptr, b_ptr, monoid_code, mask_ptr, desc_ptr)
+        cleanup_descriptor(desc_ptr)
+        {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
+      rescue
+        e ->
           cleanup_descriptor(desc_ptr)
-          {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
-
-        {:error, reason} ->
-          cleanup_descriptor(desc_ptr)
-          Error.error({:backend_error, __MODULE__, reason})
+          Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
@@ -502,18 +472,17 @@ defmodule GraphBLAS.Backend.SuiteSparse do
     with {:ok, m} <- resolve_monoid(monoid) do
       monoid_code = monoid_to_code(m)
 
-      result =
-        case type do
-          :int64 -> GraphBLAS.Native.vector_reduce_to_scalar_int64(ptr, monoid_code)
-          :fp64 -> GraphBLAS.Native.vector_reduce_to_scalar_fp64(ptr, monoid_code)
-          :bool -> GraphBLAS.Native.vector_reduce_to_scalar_bool(ptr, monoid_code)
-        end
+      try do
+        value =
+          case type do
+            :int64 -> GraphBLAS.Native.vector_reduce_to_scalar_int64(ptr, monoid_code)
+            :fp64 -> GraphBLAS.Native.vector_reduce_to_scalar_fp64(ptr, monoid_code)
+            :bool -> GraphBLAS.Native.vector_reduce_to_scalar_bool(ptr, monoid_code)
+          end
 
-      case result do
-        value when is_integer(value) -> {:ok, %Scalar{type: type, value: value}}
-        value when is_float(value) -> {:ok, %Scalar{type: type, value: value}}
-        value when is_boolean(value) -> {:ok, %Scalar{type: type, value: value}}
-        {:error, reason} -> Error.error({:backend_error, __MODULE__, reason})
+        {:ok, %Scalar{type: type, value: value}}
+      rescue
+        e -> Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
@@ -544,19 +513,16 @@ defmodule GraphBLAS.Backend.SuiteSparse do
         value
       ) do
     with :ok <- validate_index(index, size) do
-      result =
+      try do
         case type do
           :int64 -> GraphBLAS.Native.vector_set_int64(ptr, index, value)
           :fp64 -> GraphBLAS.Native.vector_set_fp64(ptr, index, value)
           :bool -> GraphBLAS.Native.vector_set_bool(ptr, index, value)
         end
 
-      case result do
-        :ok ->
-          {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
-
-        {:error, reason} ->
-          Error.error({:backend_error, __MODULE__, reason})
+        {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
+      rescue
+        e -> Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
@@ -567,31 +533,27 @@ defmodule GraphBLAS.Backend.SuiteSparse do
         index
       ) do
     with :ok <- validate_index(index, size) do
-      result =
-        case type do
-          :int64 -> GraphBLAS.Native.vector_extract_int64(ptr, index)
-          :fp64 -> GraphBLAS.Native.vector_extract_fp64(ptr, index)
-          :bool -> GraphBLAS.Native.vector_extract_bool(ptr, index)
-        end
+      try do
+        value =
+          case type do
+            :int64 -> GraphBLAS.Native.vector_extract_int64(ptr, index)
+            :fp64 -> GraphBLAS.Native.vector_extract_fp64(ptr, index)
+            :bool -> GraphBLAS.Native.vector_extract_bool(ptr, index)
+          end
 
-      case result do
-        value when is_integer(value) -> {:ok, value}
-        value when is_float(value) -> {:ok, value}
-        value when is_boolean(value) -> {:ok, value}
-        {:error, reason} -> Error.error({:backend_error, __MODULE__, reason})
+        {:ok, value}
+      rescue
+        e -> Error.error({:backend_error, __MODULE__, e})
       end
     end
   end
 
   @impl GraphBLAS.Backend
   def vector_dup(%Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}) do
-    case GraphBLAS.Native.vector_dup(ptr) do
-      new_ptr when is_integer(new_ptr) ->
-        {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: new_ptr}}}
-
-      {:error, reason} ->
-        Error.error({:backend_error, __MODULE__, reason})
-    end
+    new_ptr = GraphBLAS.Native.vector_dup(ptr)
+    {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: new_ptr}}}
+  rescue
+    e -> Error.error({:backend_error, __MODULE__, e})
   end
 
   #############################################################################
@@ -695,7 +657,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
   defp default_value(_), do: 0
 
   defp validate_index(idx, max) when is_integer(idx) and idx >= 0 and idx < max, do: :ok
-  defp validate_index(idx, max), do: Error.error({:index_out_of_bounds, {idx, max}})
+  defp validate_index(idx, max), do: Error.error({:index_out_of_bounds, idx, :index, max})
 
   defp maybe_transpose_inp0(%Matrix{data: %{ptr: ptr}} = m, desc) do
     if is_struct(desc, GraphBLAS.Descriptor) and desc.inp0_transpose == :transpose do
@@ -704,7 +666,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
           {t_ptr, t}
 
         {:error, _} = err ->
-          Error.error(err)
+          err
       end
     else
       {ptr, m}
@@ -718,7 +680,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
           {t_ptr, t}
 
         {:error, _} = err ->
-          Error.error(err)
+          err
       end
     else
       {ptr, m}
@@ -749,15 +711,16 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       resolve_descriptor_flags(desc, skip_transpose, has_mask, mask_complement)
 
     if inp0_tran or inp1_tran or output_replace or mask_complement or mask_structural do
-      case GraphBLAS.Native.descriptor_create(
-             inp0_tran,
-             inp1_tran,
-             output_replace,
-             mask_complement,
-             mask_structural
-           ) do
-        ptr when is_integer(ptr) -> ptr
-        {:error, reason} -> Error.error({:backend_error, __MODULE__, reason})
+      try do
+        GraphBLAS.Native.descriptor_create(
+          inp0_tran,
+          inp1_tran,
+          output_replace,
+          mask_complement,
+          mask_structural
+        )
+      rescue
+        e -> Error.error({:backend_error, __MODULE__, e})
       end
     else
       0
@@ -788,40 +751,36 @@ defmodule GraphBLAS.Backend.SuiteSparse do
   defp build_matrix_from_coo(ptr, nrows, ncols, entries, type) do
     {rows, cols, vals} = unzip_coo(entries, type)
 
-    build_result =
+    try do
       case type do
         :int64 -> GraphBLAS.Native.matrix_build_int64(ptr, rows, cols, vals, length(entries))
         :fp64 -> GraphBLAS.Native.matrix_build_fp64(ptr, rows, cols, vals, length(entries))
         :bool -> GraphBLAS.Native.matrix_build_bool(ptr, rows, cols, vals, length(entries))
       end
 
-    case build_result do
-      :ok ->
-        {:ok, %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
-
-      {:error, reason} ->
+      {:ok, %Matrix{shape: {nrows, ncols}, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
+    rescue
+      e ->
         GraphBLAS.Native.matrix_free(ptr)
-        Error.error({:backend_error, __MODULE__, reason})
+        Error.error({:backend_error, __MODULE__, e})
     end
   end
 
   defp build_vector_from_entries(ptr, size, entries, type) do
     {indices, vals} = unzip_vector_entries(entries, type)
 
-    build_result =
+    try do
       case type do
         :int64 -> GraphBLAS.Native.vector_build_int64(ptr, indices, vals, length(entries))
         :fp64 -> GraphBLAS.Native.vector_build_fp64(ptr, indices, vals, length(entries))
         :bool -> GraphBLAS.Native.vector_build_bool(ptr, indices, vals, length(entries))
       end
 
-    case build_result do
-      :ok ->
-        {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
-
-      {:error, reason} ->
+      {:ok, %Vector{size: size, type: type, backend: __MODULE__, data: %{ptr: ptr}}}
+    rescue
+      e ->
         GraphBLAS.Native.vector_free(ptr)
-        Error.error({:backend_error, __MODULE__, reason})
+        Error.error({:backend_error, __MODULE__, e})
     end
   end
 end

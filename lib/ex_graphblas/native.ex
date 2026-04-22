@@ -25,7 +25,7 @@ defmodule GraphBLAS.Native do
   GC via Zigler resources once the module boundary is resolved.
   """
 
-  @version "0.2.0"
+  @version "0.2.0-dev"
 
   @suitesparse_include_path Application.compile_env(
                               :ex_graphblas,

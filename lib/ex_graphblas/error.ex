@@ -54,6 +54,9 @@ defmodule GraphBLAS.Error do
   - `{:null_handle, handle_type}` -- operation on destroyed or uninitialized handle
   - `{:invalid_argument, detail}` -- invalid input to an API call
   - `{:index_out_of_bounds, index, dimension, size}` -- index exceeds dimension
+  - `{:mask_type_mismatch, actual, expected}` -- mask container type mismatch
+  - `{:unknown_predicate, name}` -- predicate not found in relation
+  - `{:empty_predicate_path}` -- traverse called with empty path
   - `{:empty_collection, detail}` -- operation requiring data on empty container
   """
   @type reason ::
@@ -65,6 +68,9 @@ defmodule GraphBLAS.Error do
           | {:null_handle, atom()}
           | {:invalid_argument, term()}
           | {:index_out_of_bounds, non_neg_integer(), atom(), non_neg_integer()}
+          | {:mask_type_mismatch, atom(), atom()}
+          | {:unknown_predicate, atom()}
+          | {:empty_predicate_path}
           | {:empty_collection, term()}
 
   @doc """
@@ -110,6 +116,7 @@ defmodule GraphBLAS.Error do
   should not occur in correct usage. For expected failure modes (e.g.,
   backend errors after retrying), return `{:error, t}` instead.
   """
+  @dialyzer {:nowarn_function, raise!: 1}
   @spec raise!(reason(), keyword()) :: no_return()
   def raise!(reason, opts \\ []) do
     err = new(reason, opts)
@@ -162,6 +169,18 @@ defmodule GraphBLAS.Error do
 
   defp format_reason({:empty_collection, detail}) do
     "Empty collection: #{inspect(detail)}"
+  end
+
+  defp format_reason({:mask_type_mismatch, actual, expected}) do
+    "Mask type mismatch: got #{inspect(actual)}, expected #{inspect(expected)}"
+  end
+
+  defp format_reason({:unknown_predicate, name}) do
+    "Unknown predicate: #{inspect(name)}"
+  end
+
+  defp format_reason({:empty_predicate_path}) do
+    "Empty predicate path: at least one predicate required"
   end
 
   defp format_reason(reason) do

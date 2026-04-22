@@ -115,16 +115,16 @@ defmodule GraphBLAS.Backend.Elixir do
     with {:ok, sr} <- resolve_semiring(semiring),
          {matrix, _} <- apply_descriptor_inputs(matrix, nil, opts),
          :ok <- validate_mxv_dims(matrix, vector) do
-        multiply_fn = resolve_operator_fn(sr.multiply)
-        add_fn = resolve_operator_fn(sr.add)
+      multiply_fn = resolve_operator_fn(sr.multiply)
+      add_fn = resolve_operator_fn(sr.add)
 
-        result_entries = mxv_multiply(matrix, vector, multiply_fn, add_fn)
-        nrows = elem(matrix.shape, 0)
+      result_entries = mxv_multiply(matrix, vector, multiply_fn, add_fn)
+      nrows = elem(matrix.shape, 0)
 
-        with {:ok, masked} <- apply_vector_mask(result_entries, opts, nrows) do
-          data = %{entries: masked, size: nrows, type: sr.type}
-          {:ok, %Vector{size: nrows, type: sr.type, backend: __MODULE__, data: data}}
-        end
+      with {:ok, masked} <- apply_vector_mask(result_entries, opts, nrows) do
+        data = %{entries: masked, size: nrows, type: sr.type}
+        {:ok, %Vector{size: nrows, type: sr.type, backend: __MODULE__, data: data}}
+      end
     end
   end
 
@@ -573,7 +573,7 @@ defmodule GraphBLAS.Backend.Elixir do
   #############################################################################
 
   defp validate_index(idx, max) when is_integer(idx) and idx >= 0 and idx < max, do: :ok
-  defp validate_index(idx, max), do: Error.error({:index_out_of_bounds, {idx, max}})
+  defp validate_index(idx, max), do: Error.error({:index_out_of_bounds, idx, :index, max})
 
   defp apply_matrix_mask(entries, opts, _nrows, _ncols) do
     case Keyword.get(opts, :mask) do

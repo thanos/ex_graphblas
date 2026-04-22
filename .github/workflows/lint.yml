@@ -41,6 +41,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-lint-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-
 
+      - name: Install SuiteSparse:GraphBLAS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgraphblas-dev pkg-config
+
       - name: Install dependencies
         run: mix deps.get
 
@@ -51,6 +56,7 @@ jobs:
         run: mix compile --warnings-as-errors
         env:
           MIX_ENV: dev
+          EX_GRAPHBLAS_BUILD: "1"
 
       - name: Run Credo
         run: mix credo --strict
@@ -112,11 +118,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-plt-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-
 
+      - name: Install SuiteSparse:GraphBLAS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgraphblas-dev pkg-config
+
       - name: Install dependencies
         run: mix deps.get
 
       - name: Compile
         run: mix compile --warnings-as-errors
+        env:
+          EX_GRAPHBLAS_BUILD: "1"
 
       - name: Create PLT directory
         if: steps.plt-cache.outputs.cache-hit != 'true'
