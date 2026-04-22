@@ -10,14 +10,14 @@ defmodule GraphBLAS.MixProject do
   to swappable backends (initially SuiteSparse:GraphBLAS via Zigler).
   """
 
-  @version "0.2.0-dev"
+  @version "0.2.0"
   @source_url "https://github.com/thanos/ex_graphblas"
 
   def project do
     [
       app: :ex_graphblas,
       version: @version,
-      elixir: "~> 1.18",
+      elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: [
