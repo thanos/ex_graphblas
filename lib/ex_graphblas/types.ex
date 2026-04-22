@@ -124,18 +124,19 @@ defmodule GraphBLAS.Types do
   def default_bool_type, do: :bool
 
   @doc """
-  Validates that the given atom is a known scalar type.
+  Validates that the given atom is a supported scalar type.
 
-  Returns `:ok` if valid, or `{:error, {:unknown_type, term}}` otherwise.
+  Only `:int64`, `:fp64`, and `:bool` are currently supported by both backends.
+
+  Returns `:ok` if valid, or `{:error, {:unsupported_type, term}}` otherwise.
   """
-  @spec validate_scalar_type(term()) :: :ok | {:error, {:unknown_type, term()}}
-  def validate_scalar_type(type)
-      when type in ~w(bool int8 int16 int32 int64 uint8 uint16 uint32 uint64 fp32 fp64)a do
+  @spec validate_scalar_type(term()) :: :ok | {:error, {:unsupported_type, term()}}
+  def validate_scalar_type(type) when type in [:int64, :fp64, :bool] do
     :ok
   end
 
   def validate_scalar_type(other) do
-    {:error, {:unknown_type, other}}
+    {:error, {:unsupported_type, other}}
   end
 
   @doc """

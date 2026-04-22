@@ -677,24 +677,11 @@ defmodule GraphBLAS.Backend.SuiteSparse do
   defp resolve_monoid(name) when is_atom(name), do: Monoid.resolve(name)
   defp resolve_monoid(%Monoid{} = m), do: {:ok, m}
 
-  defp unzip_coo(entries, :bool) do
-    rows = Enum.map(entries, fn {r, _c, _v} -> r end)
-    cols = Enum.map(entries, fn {_r, c, _v} -> c end)
-    vals = Enum.map(entries, fn {_r, _c, v} -> v end)
-    {rows, cols, vals}
-  end
-
   defp unzip_coo(entries, _type) do
     rows = Enum.map(entries, fn {r, _c, _v} -> r end)
     cols = Enum.map(entries, fn {_r, c, _v} -> c end)
     vals = Enum.map(entries, fn {_r, _c, v} -> v end)
     {rows, cols, vals}
-  end
-
-  defp unzip_vector_entries(entries, :bool) do
-    indices = Enum.map(entries, fn {i, _v} -> i end)
-    vals = Enum.map(entries, fn {_i, v} -> v end)
-    {indices, vals}
   end
 
   defp unzip_vector_entries(entries, _type) do

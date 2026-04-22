@@ -4,28 +4,18 @@ defmodule GraphBLAS.TypesTest do
   alias GraphBLAS.Types
 
   describe "validate_scalar_type/1" do
-    test "accepts all valid scalar types" do
-      for type <- [
-            :bool,
-            :int8,
-            :int16,
-            :int32,
-            :int64,
-            :uint8,
-            :uint16,
-            :uint32,
-            :uint64,
-            :fp32,
-            :fp64
-          ] do
+    test "accepts supported scalar types" do
+      for type <- [:int64, :fp64, :bool] do
         assert :ok = Types.validate_scalar_type(type)
       end
     end
 
-    test "rejects unknown types" do
-      assert {:error, {:unknown_type, :float}} = Types.validate_scalar_type(:float)
-      assert {:error, {:unknown_type, :string}} = Types.validate_scalar_type(:string)
-      assert {:error, {:unknown_type, 42}} = Types.validate_scalar_type(42)
+    test "rejects unsupported types" do
+      assert {:error, {:unsupported_type, :float}} = Types.validate_scalar_type(:float)
+      assert {:error, {:unsupported_type, :string}} = Types.validate_scalar_type(:string)
+      assert {:error, {:unsupported_type, 42}} = Types.validate_scalar_type(42)
+      assert {:error, {:unsupported_type, :int8}} = Types.validate_scalar_type(:int8)
+      assert {:error, {:unsupported_type, :fp32}} = Types.validate_scalar_type(:fp32)
     end
   end
 

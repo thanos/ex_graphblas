@@ -99,27 +99,11 @@ defmodule GraphBLAS.Scalar do
   defp numeric_one(:fp64), do: 1.0
   defp numeric_one(_int_type), do: 1
 
-  defp type_max(:int8), do: 127
-  defp type_max(:int16), do: 32_767
-  defp type_max(:int32), do: 2_147_483_647
   defp type_max(:int64), do: 9_223_372_036_854_775_807
-  defp type_max(:uint8), do: 255
-  defp type_max(:uint16), do: 65_535
-  defp type_max(:uint32), do: 4_294_967_295
-  defp type_max(:uint64), do: 18_446_744_073_709_551_615
-  defp type_max(:fp32), do: :math.pow(2, 127) * (2 - :math.pow(2, -23))
   defp type_max(:fp64), do: :math.pow(2, 1023) * (2 - :math.pow(2, -52))
   defp type_max(:bool), do: true
 
-  defp type_min(:int8), do: -128
-  defp type_min(:int16), do: -32_768
-  defp type_min(:int32), do: -2_147_483_648
   defp type_min(:int64), do: -9_223_372_036_854_775_808
-  defp type_min(:uint8), do: 0
-  defp type_min(:uint16), do: 0
-  defp type_min(:uint32), do: 0
-  defp type_min(:uint64), do: 0
-  defp type_min(:fp32), do: -:math.pow(2, 127) * (2 - :math.pow(2, -23))
   defp type_min(:fp64), do: -:math.pow(2, 1023) * (2 - :math.pow(2, -52))
   defp type_min(:bool), do: false
 end

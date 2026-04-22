@@ -140,5 +140,149 @@ defmodule GraphBLAS.RelationTest do
       # In a 3-cycle, every node reaches every node
       assert length(coo) == 9
     end
+
+    test "closure with plus_times semiring (path counting)" do
+      rel = Relation.new(3)
+      {:ok, rel} = Relation.add_weighted_triples(rel, :edge, [{0, 1, 1}, {1, 2, 1}], :int64)
+      {:ok, result} = Relation.closure(rel, :edge, :plus_times)
+      {:ok, coo} = Matrix.to_coo(result)
+      # Should have paths: 0→1 (1), 1→2 (1), 0→2 (1 via 1)
+      assert length(coo) >= 3
+    end
+
+    test "closure with plus_min semiring (shortest path)" do
+      rel = Relation.new(3)
+      {:ok, rel} = Relation.add_weighted_triples(rel, :dist, [{0, 1, 5}, {1, 2, 3}], :int64)
+      {:ok, result} = Relation.closure(rel, :dist, :plus_min)
+      {:ok, coo} = Matrix.to_coo(result)
+      # Closure iteratively computes A + A^2 + A^3 + ..., should find all paths
+      assert length(coo) >= 2
+    end
+  end
+
+  describe "traverse/4 single predicate" do
+    test "single-hop traversal with lor_land" do
+      rel = Relation.new(3)
+      {:ok, rel} = Relation.add_triples(rel, :follows, [{0, 1}, {1, 2}])
+      {:ok, result} = Relation.traverse(rel, [:follows], :lor_land)
+      {:ok, coo} = Matrix.to_coo(result)
+      assert length(coo) == 2
+      assert {0, 1, true} in coo
+      assert {1, 2, true} in coo
+    end
+
+    test "single-hop traversal with plus_times on empty matrix" do
+      rel = Relation.new(3)
+      {:ok, rel} = Relation.add_triples(rel, :empty, [])
+      {:ok, result} = Relation.traverse(rel, [:empty], :plus_times)
+      {:ok, coo} = Matrix.to_coo(result)
+      assert coo == []
+    end
+
+    test "single-hop returns error for unknown predicate" do
+      rel = Relation.new(3)
+      assert {:error, _} = Relation.traverse(rel, [:unknown], :lor_land)
+    end
+  end
+
+  describe "traverse/4 multi-hop edge cases" do
+    test "returns error when second predicate in path is unknown" do
+      rel = Relation.new(3)
+      {:ok, rel} = Relation.add_triples(rel, :follows, [{0, 1}])
+      assert {:error, _} = Relation.traverse(rel, [:follows, :unknown], :lor_land)
+    end
+
+    test "returns error when last predicate in 3-hop path is unknown" do
+      rel = Relation.new(3)
+      {:ok, rel} = Relation.add_triples(rel, :a, [{0, 1}])
+      {:ok, rel} = Relation.add_triples(rel, :b, [{1, 2}])
+      assert {:error, _} = Relation.traverse(rel, [:a, :b, :unknown], :lor_land)
+    end
+
+    test "traverse with plus_min_fp64 semiring" do
+      rel = Relation.new(3)
+      {:ok, rel} = Relation.add_weighted_triples(rel, :cost, [{0, 1, 2.5}, {1, 2, 1.5}], :fp64)
+      {:ok, result} = Relation.traverse(rel, [:cost, :cost], :plus_min_fp64)
+      {:ok, coo} = Matrix.to_coo(result)
+      # Traverse computes A * A (not closure), so the result depends on the semiring
+      assert Enum.empty?(coo) == false
+    end
+  end
+
+  describe "add_triples/4 with backend option" do
+    test "creates new predicate with specified backend" do
+      rel = Relation.new(3)
+      backend = GraphBLAS.Backend.Elixir
+      {:ok, rel} = Relation.add_triples(rel, :edge, [{0, 1}], backend: backend)
+      {:ok, mat} = Relation.matrix(rel, :edge)
+      assert mat.backend == backend
+    end
+
+    test "extends existing predicate preserving its backend" do
+      rel = Relation.new(3)
+      backend = GraphBLAS.Backend.SuiteSparse
+      {:ok, rel} = Relation.add_triples(rel, :edge, [{0, 1}], backend: backend)
+      {:ok, rel} = Relation.add_triples(rel, :edge, [{1, 2}])
+
+      {:ok, mat} = Relation.matrix(rel, :edge)
+      assert mat.backend == backend
+    end
+  end
+
+  describe "add_weighted_triples/5 with backend option" do
+    test "creates new predicate with specified backend" do
+      rel = Relation.new(3)
+      backend = GraphBLAS.Backend.Elixir
+
+      {:ok, rel} =
+        Relation.add_weighted_triples(rel, :dist, [{0, 1, 5}], :int64, backend: backend)
+
+      {:ok, mat} = Relation.matrix(rel, :dist)
+      assert mat.backend == backend
+    end
+
+    test "extends existing predicate preserving its backend" do
+      rel = Relation.new(3)
+      backend = GraphBLAS.Backend.SuiteSparse
+
+      {:ok, rel} =
+        Relation.add_weighted_triples(rel, :dist, [{0, 1, 5}], :int64, backend: backend)
+
+      {:ok, rel} = Relation.add_weighted_triples(rel, :dist, [{1, 2, 3}], :int64)
+
+      {:ok, mat} = Relation.matrix(rel, :dist)
+      assert mat.backend == backend
+    end
+  end
+
+  describe "Relation edge cases" do
+    test "empty relation has no predicates" do
+      rel = Relation.new(10)
+      assert Relation.predicates(rel) == []
+    end
+
+    test "multiple predicates coexist" do
+      rel = Relation.new(5)
+      {:ok, rel} = Relation.add_triples(rel, :p1, [{0, 1}])
+      {:ok, rel} = Relation.add_triples(rel, :p2, [{1, 2}])
+      {:ok, rel} = Relation.add_weighted_triples(rel, :p3, [{2, 3, 10}], :int64)
+
+      predicates = Relation.predicates(rel)
+      assert :p1 in predicates
+      assert :p2 in predicates
+      assert :p3 in predicates
+      assert length(predicates) == 3
+    end
+
+    test "closure with max iterations (convergence limit)" do
+      # Create a large enough graph that might not converge quickly
+      rel = Relation.new(10)
+      edges = for i <- 0..8, do: {i, i + 1}
+      {:ok, rel} = Relation.add_triples(rel, :path, edges)
+      {:ok, result} = Relation.closure(rel, :path, :lor_land)
+      {:ok, coo} = Matrix.to_coo(result)
+      # Should eventually converge
+      assert Enum.empty?(coo) == false
+    end
   end
 end

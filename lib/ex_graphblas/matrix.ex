@@ -280,6 +280,9 @@ defmodule GraphBLAS.Matrix do
   @doc """
   Sets the value at position (row, col) in the matrix, overwriting any existing value.
 
+  Note: This function dispatches to the backend stored in the matrix's `backend` field.
+  The `opts` parameter is accepted for API consistency but is currently unused.
+
   ## Examples
 
       iex> {:ok, m} = GraphBLAS.Matrix.from_coo(2, 2, [{0, 0, 1}], :int64)
@@ -303,6 +306,9 @@ defmodule GraphBLAS.Matrix do
 
   Returns the default value (0, 0.0, or false) for structural zeros.
 
+  Note: This function dispatches to the backend stored in the matrix's `backend` field.
+  The `opts` parameter is accepted for API consistency but is currently unused.
+
   ## Examples
 
       iex> {:ok, m} = GraphBLAS.Matrix.from_coo(2, 2, [{0, 0, 42}], :int64)
@@ -325,6 +331,10 @@ defmodule GraphBLAS.Matrix do
   Creates a deep copy of the matrix.
 
   The copy is independent — modifying it does not affect the original.
+  The copy uses the same backend as the original matrix.
+
+  Note: The `opts` parameter is accepted for API consistency but is currently unused.
+  To convert a matrix to a different backend, use `to_coo/1` followed by `from_coo/5`.
 
   ## Examples
 
@@ -334,8 +344,12 @@ defmodule GraphBLAS.Matrix do
 
   """
   @spec dup(t(), Types.opts()) :: {:ok, t()} | {:error, Error.t()}
-  def dup(%__MODULE__{} = matrix, opts \\ []) do
-    backend = Config.resolve_backend(opts)
+  def dup(matrix, opts \\ [])
+
+  def dup(%__MODULE__{backend: nil} = matrix, _opts),
+    do: dup(%{matrix | backend: Config.default_backend()}, [])
+
+  def dup(%__MODULE__{backend: backend} = matrix, _opts) do
     backend.matrix_dup(matrix)
   end
 end

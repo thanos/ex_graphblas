@@ -21,9 +21,9 @@ defmodule GraphBLAS.Relation do
   `:plus_times` for path counting, `:plus_min` for shortest path.
   """
 
-  alias GraphBLAS.Backend.Elixir, as: RefBackend
-  alias GraphBLAS.Backend.SuiteSparse
-  alias GraphBLAS.{Config, Error, Matrix}
+  alias GraphBLAS.{Config, Error, Helpers, Matrix}
+
+  import Helpers, only: [ok: 1]
 
   @type t :: %__MODULE__{
           size: non_neg_integer(),
@@ -46,18 +46,22 @@ defmodule GraphBLAS.Relation do
 
   Creates or extends the adjacency matrix for the given predicate.
   Each pair `{s, o}` sets `A_pred[s][o] = true`.
+
+  When extending an existing predicate, the backend is inherited from the existing matrix.
+  When creating a new predicate, the backend is taken from `opts` or defaults to the configured backend.
   """
-  @spec add_triples(t(), atom(), [{non_neg_integer(), non_neg_integer()}]) ::
+  @spec add_triples(t(), atom(), [{non_neg_integer(), non_neg_integer()}], keyword()) ::
           {:ok, t()} | {:error, Error.t()}
-  def add_triples(%__MODULE__{size: n, predicates: preds} = rel, predicate, pairs) do
-    opts = [backend: Config.default_backend()]
+  def add_triples(%__MODULE__{size: n, predicates: preds} = rel, predicate, pairs, opts \\ []) do
     entries = Enum.map(pairs, fn {s, o} -> {s, o, true} end)
 
     case Map.fetch(preds, predicate) do
       {:ok, existing} ->
+        backend = existing.backend || Config.default_backend()
+
         with {:ok, new_entries} <- ok(Matrix.to_coo(existing)),
              combined <- new_entries ++ entries,
-             {:ok, updated} <- Matrix.from_coo(n, n, combined, :bool, opts) do
+             {:ok, updated} <- Matrix.from_coo(n, n, combined, :bool, backend: backend) do
           {:ok, %{rel | predicates: Map.put(preds, predicate, updated)}}
         end
 
@@ -73,27 +77,32 @@ defmodule GraphBLAS.Relation do
   Adds weighted (subject, object, value) triples for a predicate.
 
   Creates or extends the adjacency matrix with the given scalar type.
+
+  When extending an existing predicate, the backend is inherited from the existing matrix.
+  When creating a new predicate, the backend is taken from `opts` or defaults to the configured backend.
   """
   @spec add_weighted_triples(
           t(),
           atom(),
           [{non_neg_integer(), non_neg_integer(), number()}],
-          atom()
+          atom(),
+          keyword()
         ) ::
           {:ok, t()} | {:error, Error.t()}
   def add_weighted_triples(
         %__MODULE__{size: n, predicates: preds} = rel,
         predicate,
         triples,
-        type
+        type,
+        opts \\ []
       ) do
-    opts = [backend: Config.default_backend()]
-
     case Map.fetch(preds, predicate) do
       {:ok, existing} ->
+        backend = existing.backend || Config.default_backend()
+
         with {:ok, new_entries} <- ok(Matrix.to_coo(existing)),
              combined <- new_entries ++ triples,
-             {:ok, updated} <- Matrix.from_coo(n, n, combined, type, opts) do
+             {:ok, updated} <- Matrix.from_coo(n, n, combined, type, backend: backend) do
           {:ok, %{rel | predicates: Map.put(preds, predicate, updated)}}
         end
 
@@ -274,16 +283,5 @@ defmodule GraphBLAS.Relation do
     end
   end
 
-  defp ok({:ok, val}), do: {:ok, val}
-  defp ok(%Matrix{} = m), do: {:ok, m}
-  defp ok({:error, _} = err), do: err
-  defp ok(:ok), do: :ok
-
-  defp maybe_free_intermediate(_mat, RefBackend), do: :ok
-
-  defp maybe_free_intermediate(%Matrix{} = m, SuiteSparse) do
-    SuiteSparse.matrix_free(m)
-  end
-
-  defp maybe_free_intermediate(_, _), do: :ok
+  defp maybe_free_intermediate(container, backend), do: Helpers.maybe_free(container, backend)
 end

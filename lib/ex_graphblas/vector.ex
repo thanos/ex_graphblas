@@ -175,6 +175,9 @@ defmodule GraphBLAS.Vector do
   @doc """
   Sets the value at the given index in the vector, overwriting any existing value.
 
+  Note: This function dispatches to the backend stored in the vector's `backend` field.
+  The `opts` parameter is accepted for API consistency but is currently unused.
+
   ## Examples
 
       iex> {:ok, v} = GraphBLAS.Vector.from_entries(3, [{0, 1}], :int64)
@@ -198,6 +201,9 @@ defmodule GraphBLAS.Vector do
 
   Returns the default value (0, 0.0, or false) for structural zeros.
 
+  Note: This function dispatches to the backend stored in the vector's `backend` field.
+  The `opts` parameter is accepted for API consistency but is currently unused.
+
   ## Examples
 
       iex> {:ok, v} = GraphBLAS.Vector.from_entries(3, [{0, 42}], :int64)
@@ -220,6 +226,10 @@ defmodule GraphBLAS.Vector do
   Creates a deep copy of the vector.
 
   The copy is independent — modifying it does not affect the original.
+  The copy uses the same backend as the original vector.
+
+  Note: The `opts` parameter is accepted for API consistency but is currently unused.
+  To convert a vector to a different backend, use `to_entries/1` followed by `from_entries/4`.
 
   ## Examples
 
@@ -229,8 +239,12 @@ defmodule GraphBLAS.Vector do
 
   """
   @spec dup(t(), Types.opts()) :: {:ok, t()} | {:error, Error.t()}
-  def dup(%__MODULE__{} = vector, opts \\ []) do
-    backend = Config.resolve_backend(opts)
+  def dup(vector, opts \\ [])
+
+  def dup(%__MODULE__{backend: nil} = vector, _opts),
+    do: dup(%{vector | backend: Config.default_backend()}, [])
+
+  def dup(%__MODULE__{backend: backend} = vector, _opts) do
     backend.vector_dup(vector)
   end
 end

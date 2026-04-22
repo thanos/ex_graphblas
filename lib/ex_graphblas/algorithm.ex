@@ -20,9 +20,9 @@ defmodule GraphBLAS.Algorithm do
   - **Phase 6C** -- Query foundations (fixed-point iteration primitive)
   """
 
-  alias GraphBLAS.Backend.Elixir, as: RefBackend
-  alias GraphBLAS.Backend.SuiteSparse
-  alias GraphBLAS.{Config, Descriptor, Error, Mask, Matrix, Scalar, Vector}
+  alias GraphBLAS.{Config, Descriptor, Error, Helpers, Mask, Matrix, Scalar, Vector}
+
+  import Helpers, only: [ok: 1, maybe_free: 2]
 
   @default_max_iter 100
   @default_tol 1.0e-6
@@ -532,25 +532,6 @@ defmodule GraphBLAS.Algorithm do
       {:ok, result}
     end
   end
-
-  defp maybe_free(_container, RefBackend), do: :ok
-
-  defp maybe_free(%Matrix{} = m, SuiteSparse) do
-    SuiteSparse.matrix_free(m)
-  end
-
-  defp maybe_free(%Vector{} = v, SuiteSparse) do
-    SuiteSparse.vector_free(v)
-  end
-
-  defp maybe_free(_container, _backend), do: :ok
-
-  defp ok({:ok, val}), do: {:ok, val}
-  defp ok(%Matrix{} = m), do: {:ok, m}
-  defp ok(%Vector{} = v), do: {:ok, v}
-  defp ok(%Scalar{} = s), do: {:ok, s}
-  defp ok({:error, _} = err), do: err
-  defp ok(:ok), do: :ok
 
   defp default_converged?(%Matrix{} = old, %Matrix{} = new, _tol) do
     {:ok, old_coo} = ok(Matrix.to_coo(old))

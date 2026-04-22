@@ -120,4 +120,103 @@ defmodule GraphBLAS.VectorAPITest do
       assert {:ok, 3} = Vector.size(v)
     end
   end
+
+  describe "Vector with nil backend (fallback behavior)" do
+    test "nvals/1 falls back to default backend when backend is nil" do
+      {:ok, v} = Vector.from_entries(3, [{0, 1}, {1, 2}], :int64)
+      v_nil_backend = %{v | backend: nil}
+      assert {:ok, 2} = Vector.nvals(v_nil_backend)
+    end
+
+    test "to_entries/1 falls back to default backend when backend is nil" do
+      {:ok, v} = Vector.from_entries(3, [{0, 1}, {1, 2}], :int64)
+      v_nil_backend = %{v | backend: nil}
+      assert {:ok, entries} = Vector.to_entries(v_nil_backend)
+      assert Enum.sort(entries) == [{0, 1}, {1, 2}]
+    end
+
+    test "to_list/1 falls back to default backend when backend is nil" do
+      {:ok, v} = Vector.from_entries(3, [{0, 5}, {2, 3}], :int64)
+      v_nil_backend = %{v | backend: nil}
+      assert {:ok, list} = Vector.to_list(v_nil_backend)
+      assert list == [5, 0, 3]
+    end
+
+    test "set/4 falls back to default backend when backend is nil" do
+      {:ok, v} = Vector.from_entries(3, [{0, 1}], :int64)
+      v_nil_backend = %{v | backend: nil}
+      assert {:ok, updated} = Vector.set(v_nil_backend, 1, 5)
+      assert {:ok, 5} = Vector.extract(updated, 1)
+    end
+
+    test "extract/3 falls back to default backend when backend is nil" do
+      {:ok, v} = Vector.from_entries(3, [{0, 42}], :int64)
+      v_nil_backend = %{v | backend: nil}
+      assert {:ok, 42} = Vector.extract(v_nil_backend, 0)
+      assert {:ok, 0} = Vector.extract(v_nil_backend, 1)
+    end
+
+    test "dup/2 falls back to default backend when backend is nil" do
+      {:ok, v} = Vector.from_entries(3, [{0, 1}, {1, 2}], :int64)
+      v_nil_backend = %{v | backend: nil}
+      assert {:ok, copy} = Vector.dup(v_nil_backend)
+      assert {:ok, entries} = Vector.to_entries(copy)
+      assert Enum.sort(entries) == [{0, 1}, {1, 2}]
+    end
+
+    test "nil backend fallback works across multiple operations" do
+      {:ok, v} = Vector.from_entries(3, [{0, 1}], :int64)
+      v_nil = %{v | backend: nil}
+
+      # Chain of operations with nil backend
+      assert {:ok, 1} = Vector.nvals(v_nil)
+      assert {:ok, entries} = Vector.to_entries(v_nil)
+      assert [{0, 1}] = entries
+      assert {:ok, list} = Vector.to_list(v_nil)
+      assert [1, 0, 0] = list
+    end
+  end
+
+  describe "Vector edge cases" do
+    test "empty vector operations" do
+      {:ok, v} = Vector.new(5, :int64)
+      assert {:ok, 0} = Vector.nvals(v)
+      assert {:ok, []} = Vector.to_entries(v)
+      assert {:ok, [0, 0, 0, 0, 0]} = Vector.to_list(v)
+    end
+
+    test "single element vector" do
+      {:ok, v} = Vector.from_entries(1, [{0, 42}], :int64)
+      assert {:ok, 1} = Vector.nvals(v)
+      assert {:ok, [{0, 42}]} = Vector.to_entries(v)
+      assert {:ok, [42]} = Vector.to_list(v)
+    end
+
+    test "dense vector (all positions filled)" do
+      entries = for i <- 0..9, do: {i, i * 10}
+      {:ok, v} = Vector.from_entries(10, entries, :int64)
+      assert {:ok, 10} = Vector.nvals(v)
+      assert {:ok, list} = Vector.to_list(v)
+      assert list == [0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
+    end
+
+    test "extract with opts parameter (even though unused)" do
+      {:ok, v} = Vector.from_entries(3, [{0, 42}], :int64)
+      assert {:ok, 42} = Vector.extract(v, 0, backend: RefBackend)
+      assert {:ok, 0} = Vector.extract(v, 1, some_option: :ignored)
+    end
+
+    test "set with opts parameter (even though unused)" do
+      {:ok, v} = Vector.from_entries(3, [{0, 1}], :int64)
+      assert {:ok, updated} = Vector.set(v, 1, 5, backend: RefBackend)
+      assert {:ok, 5} = Vector.extract(updated, 1)
+    end
+
+    test "dup with opts parameter" do
+      {:ok, v} = Vector.from_entries(3, [{0, 1}], :int64)
+      assert {:ok, copy} = Vector.dup(v, some_option: :ignored)
+      assert {:ok, entries} = Vector.to_entries(copy)
+      assert [{0, 1}] = entries
+    end
+  end
 end
