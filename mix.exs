@@ -48,6 +48,7 @@ defmodule GraphBLAS.MixProject do
   defp deps do
     [
       {:zigler, "~> 0.15"},
+      {:zigler_precompiled, "~> 0.1"},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:benchee, "~> 1.3", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
