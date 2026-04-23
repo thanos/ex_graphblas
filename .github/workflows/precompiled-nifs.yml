@@ -44,17 +44,6 @@ jobs:
         run: |
           echo "PROJECT_VERSION=$(sed -n 's/^  @version "\(.*\)"/\1/p' mix.exs | head -n1)" >> $GITHUB_ENV
 
-      - name: Set up Zig
-        uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.11.0
-
-      - name: Set up Elixir
-        uses: erlef/setup-beam@v1
-        with:
-          otp-version: "27"
-          elixir-version: "1.18.4"
-
       - name: Install SuiteSparse (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -77,6 +66,9 @@ jobs:
 
       - name: Install dependencies
         run: mix deps.get
+
+      - name: Download Zig (for Zigler)
+        run: mix zig.get
 
       - name: Build NIF from source
         env:
