@@ -56,16 +56,29 @@ jobs:
             libomp-dev \
             git
 
-      - name: Build and install SuiteSparse:GraphBLAS from source (Linux)
+      - name: Clone SuiteSparse:GraphBLAS (Linux)
+        if: runner.os == 'Linux'
+        run: git clone --depth 1 --branch v9.4.5 https://github.com/DrTimothyAldenDavis/GraphBLAS.git
+
+      - name: Configure GraphBLAS with CMake (Linux)
+        if: runner.os == 'Linux'
+        working-directory: GraphBLAS
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr/local
+
+      - name: Build and install GraphBLAS (Linux)
+        if: runner.os == 'Linux'
+        working-directory: GraphBLAS
+        run: |
+          cmake --build build -j"$(nproc)"
+          sudo cmake --install build
+          sudo ldconfig
+
+      - name: Verify GraphBLAS installation (Linux)
         if: runner.os == 'Linux'
         run: |
-          git clone --depth 1 --branch v9.4.5 https://github.com/DrTimothyAldenDavis/GraphBLAS.git
-          cd GraphBLAS
-          mkdir build && cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
-          cmake --build . -j"$(nproc)"
-          sudo cmake --install .
-          sudo ldconfig
           export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:${PKG_CONFIG_PATH}"
           pkg-config --modversion graphblas
 
