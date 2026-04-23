@@ -230,7 +230,7 @@ jobs:
       - name: Generate checksum file from GitHub Release
         run: mix zigler_precompiled.download GraphBLAS.Native --all --print 2>/dev/null
 
-      - name: Publish to Hex
-        run: mix hex.publish --yes
-        env:
-          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+      # - name: Publish to Hex
+      #   run: mix hex.publish --yes
+      #   env:
+      #     HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
