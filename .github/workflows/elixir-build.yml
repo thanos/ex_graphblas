@@ -21,8 +21,8 @@ jobs:
           - elixir: "1.18.4"
             otp: "27"
             coverage: true
-          - elixir: "1.17.3"
-            otp: "26"
+          # - elixir: "1.17.3"
+          #   otp: "26"
 
     steps:
       - name: Checkout code
@@ -38,13 +38,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libgraphblas-dev libgraphblas7 \
+            libgraphblas-dev \
             pkg-config \
             build-essential \
             clang \
             cmake \
             libomp-dev
           sudo ldconfig
+          pkg-config --modversion graphblas
 
       - name: Cache dependencies
         uses: actions/cache@v4

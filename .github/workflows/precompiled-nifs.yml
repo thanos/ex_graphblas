@@ -49,13 +49,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libgraphblas-dev libgraphblas7 \
+            libgraphblas-dev \
             pkg-config \
             build-essential \
             clang \
             cmake \
             libomp-dev
           sudo ldconfig
+          pkg-config --modversion graphblas
 
       - name: Install SuiteSparse (macOS)
         if: runner.os == 'macOS'
