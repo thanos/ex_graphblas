@@ -1,7 +1,7 @@
 # ============================================================================
-# Stage 1: System dependencies and Erlang/Elixir (matches GitHub Actions)
+# Stage 1: System dependencies and Erlang/Elixir (force linux/amd64, OTP 28)
 # ============================================================================
-FROM hexpm/elixir:1.18.4-erlang-26.1.2-debian-bullseye-20260421 AS base
+FROM --platform=linux/amd64 hexpm/elixir:1.18.4-erlang-28.0-debian-trixie-20251117-slim AS base
 
 ENV DEBIAN_FRONTEND=noninteractive \
     ELIXIR_ERL_OPTIONS="+fnu" \
@@ -20,11 +20,11 @@ RUN apt-get update && apt-get install -y \
     unzip && \
     rm -rf /var/lib/apt/lists/*
 
-# Install newer CMake (v3.20+) from GitHub releases
+# Install newer CMake (v3.20+) from GitHub releases (linux/x86_64)
 RUN mkdir -p /tmp/cmake && \
-    curl -fsSL https://github.com/Kitware/CMake/releases/download/v3.29.0/cmake-3.29.0-linux-aarch64.tar.gz | tar -C /tmp/cmake -xz && \
-    mv /tmp/cmake/cmake-3.29.0-linux-aarch64/bin/cmake /usr/local/bin/ && \
-    mv /tmp/cmake/cmake-3.29.0-linux-aarch64/share/cmake-3.29 /usr/local/share/ && \
+    curl -fsSL https://github.com/Kitware/CMake/releases/download/v3.29.0/cmake-3.29.0-linux-x86_64.tar.gz | tar -C /tmp/cmake -xz && \
+    mv /tmp/cmake/cmake-3.29.0-linux-x86_64/bin/cmake /usr/local/bin/ && \
+    mv /tmp/cmake/cmake-3.29.0-linux-x86_64/share/cmake-3.29 /usr/local/share/ && \
     rm -rf /tmp/cmake && \
     cmake --version
 

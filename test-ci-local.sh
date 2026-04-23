@@ -6,12 +6,12 @@ set -e
 DOCKER_IMAGE="ex_graphblas:ci-test"
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 
-echo "Building Docker image for CI testing..."
-docker build -f "$REPO_ROOT/Dockerfile.ci" -t "$DOCKER_IMAGE" "$REPO_ROOT"
+echo "Building Docker image for CI testing (linux/amd64)..."
+docker build --platform=linux/amd64 -f "$REPO_ROOT/Dockerfile.ci" -t "$DOCKER_IMAGE" "$REPO_ROOT"
 
 echo ""
-echo "Running CI tests in Docker container..."
-docker run --rm \
+echo "Running CI tests in Docker container (linux/amd64)..."
+docker run --rm --platform=linux/amd64 \
   -v "$REPO_ROOT:/src:ro" \
   -w /workspace \
   -e MIX_ENV=test \
