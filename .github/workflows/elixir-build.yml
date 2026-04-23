@@ -71,21 +71,18 @@ jobs:
           sudo cmake --install build
           sudo ldconfig
 
-      - name: Verify GraphBLAS installation
+      - name: Verify GraphBLAS installation and set PKG_CONFIG_PATH
         run: |
-          pc_file="$(sudo find /usr/local -type f -name 'graphblas.pc' | head -1)"
-          if [ -z "$pc_file" ]; then
+          # Verify graphblas.pc exists
+          if ! sudo find /usr/local -type f -name 'graphblas.pc' | grep -q graphblas.pc; then
             echo "graphblas.pc not found under /usr/local"
             sudo find /usr/local -maxdepth 4 -type f -name '*.pc' || true
             exit 1
           fi
-          pc_dir="$(dirname "$pc_file")"
-          echo "PKG_CONFIG_PATH=$pc_dir" >> "$GITHUB_ENV"
-          export PKG_CONFIG_PATH="$pc_dir"
+          # Set PKG_CONFIG_PATH for pkg-config to find graphblas
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig" >> "$GITHUB_ENV"
+          # Verify pkg-config can find it
           pkg-config --print-errors --modversion graphblas
-
-      - name: Set PKG_CONFIG_PATH for later steps
-        run: echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig" >> $GITHUB_ENV
 
       - name: Cache dependencies
         uses: actions/cache@v4
