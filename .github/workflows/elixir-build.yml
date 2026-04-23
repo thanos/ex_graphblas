@@ -73,12 +73,13 @@ jobs:
 
       - name: Verify GraphBLAS installation
         run: |
-          pc_dir="$(sudo find /usr/local -type f -name 'graphblas.pc' -exec dirname {} \;)"
-          if [ -z "$pc_dir" ]; then
+          pc_file="$(sudo find /usr/local -type f -name 'graphblas.pc' | head -1)"
+          if [ -z "$pc_file" ]; then
             echo "graphblas.pc not found under /usr/local"
             sudo find /usr/local -maxdepth 4 -type f -name '*.pc' || true
             exit 1
           fi
+          pc_dir="$(dirname "$pc_file")"
           echo "PKG_CONFIG_PATH=$pc_dir" >> "$GITHUB_ENV"
           export PKG_CONFIG_PATH="$pc_dir"
           pkg-config --print-errors --modversion graphblas
