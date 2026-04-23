@@ -69,8 +69,16 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=/usr/local \
             -DGRAPHBLAS_BUILD_PKGCONFIG=ON
 
-      - name: Build and install GraphBLAS (Linux)
+      - name: Cache GraphBLAS installation (Linux)
         if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        id: graphblas-cache
+        with:
+          path: /usr/local
+          key: graphblas-v9.4.5-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Build and install GraphBLAS (Linux)
+        if: runner.os == 'Linux' && steps.graphblas-cache.outputs.cache-hit != 'true'
         working-directory: GraphBLAS
         run: |
           cmake --build build -j"$(nproc)"
