@@ -34,18 +34,31 @@ jobs:
           elixir-version: ${{ matrix.elixir }}
           otp-version: ${{ matrix.otp }}
 
-      - name: Install SuiteSparse:GraphBLAS and build dependencies
+      - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libgraphblas-dev \
             pkg-config \
             build-essential \
             clang \
             cmake \
-            libomp-dev
+            libomp-dev \
+            git
+
+      - name: Build and install SuiteSparse:GraphBLAS from source
+        run: |
+          git clone --depth 1 --branch v9.4.5 https://github.com/DrTimothyAldenDavis/GraphBLAS.git
+          cd GraphBLAS
+          mkdir build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+          cmake --build . -j"$(nproc)"
+          sudo cmake --install .
           sudo ldconfig
+          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:${PKG_CONFIG_PATH}"
           pkg-config --modversion graphblas
+
+      - name: Set PKG_CONFIG_PATH for later steps
+        run: echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig" >> $GITHUB_ENV
 
       - name: Cache dependencies
         uses: actions/cache@v4

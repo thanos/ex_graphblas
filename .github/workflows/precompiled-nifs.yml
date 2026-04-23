@@ -44,19 +44,34 @@ jobs:
         run: |
           echo "PROJECT_VERSION=$(sed -n 's/^  @version "\(.*\)"/\1/p' mix.exs | head -n1)" >> $GITHUB_ENV
 
-      - name: Install SuiteSparse (Linux)
+      - name: Install build dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libgraphblas-dev \
             pkg-config \
             build-essential \
             clang \
             cmake \
-            libomp-dev
+            libomp-dev \
+            git
+
+      - name: Build and install SuiteSparse:GraphBLAS from source (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          git clone --depth 1 --branch v9.4.5 https://github.com/DrTimothyAldenDavis/GraphBLAS.git
+          cd GraphBLAS
+          mkdir build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+          cmake --build . -j"$(nproc)"
+          sudo cmake --install .
           sudo ldconfig
+          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:${PKG_CONFIG_PATH}"
           pkg-config --modversion graphblas
+
+      - name: Set PKG_CONFIG_PATH for later steps (Linux)
+        if: runner.os == 'Linux'
+        run: echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig" >> $GITHUB_ENV
 
       - name: Install SuiteSparse (macOS)
         if: runner.os == 'macOS'
