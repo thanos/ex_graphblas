@@ -219,6 +219,9 @@ jobs:
       - name: Install dependencies
         run: mix deps.get
 
+      - name: Download Zig (for Zigler)
+        run: mix zig.get
+
       - name: Compile NIF from source
         env:
           MIX_ENV: prod
