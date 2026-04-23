@@ -73,16 +73,18 @@ jobs:
 
       - name: Verify GraphBLAS installation and set PKG_CONFIG_PATH
         run: |
-          # Verify graphblas.pc exists
-          if ! sudo find /usr/local -type f -name 'graphblas.pc' | grep -q graphblas.pc; then
-            echo "graphblas.pc not found under /usr/local"
+          # Set PKG_CONFIG_PATH so pkg-config can see GraphBLAS
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig" >> "$GITHUB_ENV"
+
+          # Verify a GraphBLAS pkg-config file exists (casing may differ)
+          if ! sudo find /usr/local -type f \( -name 'GraphBLAS.pc' -o -name 'graphblas.pc' \) | grep -q '\.pc$'; then
+            echo "GraphBLAS pkg-config file not found under /usr/local"
             sudo find /usr/local -maxdepth 4 -type f -name '*.pc' || true
             exit 1
           fi
-          # Set PKG_CONFIG_PATH for pkg-config to find graphblas
-          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig" >> "$GITHUB_ENV"
-          # Verify pkg-config can find it
-          pkg-config --print-errors --modversion graphblas
+
+          # Verify pkg-config can resolve the module (try both common names)
+          pkg-config --print-errors --modversion GraphBLAS || pkg-config --print-errors --modversion graphblas
 
       - name: Cache dependencies
         uses: actions/cache@v4

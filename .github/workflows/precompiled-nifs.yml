@@ -42,7 +42,7 @@ jobs:
       - name: Extract project version
         shell: bash
         run: |
-          echo "PROJECT_VERSION=$(sed -n 's/^  @version "\(.*\)"/\1/p' mix.exs | head -n1)" >> $GITHUB_ENV
+          echo "PROJECT_VERSION=$(sed -n 's/^  @version "\(.*\)"/\1/p' mix.exs | head -n1)" >> "$GITHUB_ENV"
 
       - name: Install build dependencies (Linux)
         if: runner.os == 'Linux'
@@ -85,22 +85,25 @@ jobs:
           sudo cmake --install build
           sudo ldconfig
 
-      - name: Verify GraphBLAS installation (Linux)
+      - name: Verify GraphBLAS installation and set PKG_CONFIG_PATH (Linux)
         if: runner.os == 'Linux'
         run: |
-          pc_dir="$(sudo find /usr/local -type f -name 'graphblas.pc' -printf '%h\n' | head -n 1)"
-          if [ -z "$pc_dir" ]; then
-            echo "graphblas.pc not found under /usr/local"
-            sudo find /usr/local -maxdepth 4 -type f -name '*.pc' -print || true
+          # Set PKG_CONFIG_PATH so pkg-config can see GraphBLAS
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig" >> "$GITHUB_ENV"
+
+          # Verify a GraphBLAS pkg-config file exists (casing may differ)
+          if ! sudo find /usr/local -type f \( -name 'GraphBLAS.pc' -o -name 'graphblas.pc' \) | grep -q '\.pc$'; then
+            echo "GraphBLAS pkg-config file not found under /usr/local"
+            sudo find /usr/local -maxdepth 4 -type f -name '*.pc' || true
             exit 1
           fi
-          echo "PKG_CONFIG_PATH=$pc_dir" >> "$GITHUB_ENV"
-          export PKG_CONFIG_PATH="$pc_dir"
-          pkg-config --print-errors --modversion graphblas
+
+          # Verify pkg-config can resolve the module (try both common names)
+          pkg-config --print-errors --modversion GraphBLAS || pkg-config --print-errors --modversion graphblas
 
       - name: Set PKG_CONFIG_PATH for later steps (Linux)
         if: runner.os == 'Linux'
-        run: echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig" >> $GITHUB_ENV
+        run: echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig" >> "$GITHUB_ENV"
 
       - name: Install SuiteSparse (macOS)
         if: runner.os == 'macOS'
@@ -146,7 +149,7 @@ jobs:
       - name: Verify artifact
         shell: bash
         run: |
-          if [ ! -f artifacts/*.tar.gz ]; then
+          if [ -z "$(ls artifacts/*.tar.gz 2>/dev/null)" ]; then
             echo "::error::Build did not produce artifact"
             exit 1
           fi
