@@ -37,7 +37,7 @@ jobs:
       - name: Set up Zig
         uses: goto-bus-stop/setup-zig@v2
         with:
-          version: 0.12.0
+          version: 0.11.0
 
       - name: Install SuiteSparse:GraphBLAS
         run: |
@@ -57,10 +57,10 @@ jobs:
       - name: Install dependencies
         run: mix deps.get
 
-      - name: Compile (warnings as errors)
-        run: mix compile --warnings-as-errors
-        env:
-          ZIGLER_PRECOMPILED_FORCE_BUILD_ALL: "1"
+       - name: Compile (warnings as errors)
+         run: mix compile --warnings-as-errors
+         env:
+           ZIGLER_PRECOMPILED_FORCE_BUILD_ALL: "1"
 
       - name: Run tests
         if: ${{ !matrix.coverage }}
