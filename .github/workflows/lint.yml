@@ -18,8 +18,8 @@ jobs:
     # Pin to the canonical lint version -- this is not the build matrix.
     # The matrix for compatibility testing lives in elixir-build.yml.
     env:
-      ELIXIR_VERSION: "1.18.4"
-      OTP_VERSION: "27"
+      ELIXIR_VERSION: "1.19.5"
+      OTP_VERSION: "28.4.1"
 
     steps:
       - name: Checkout code
