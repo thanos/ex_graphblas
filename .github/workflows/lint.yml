@@ -83,64 +83,64 @@ jobs:
       - name: Audit dependencies for known vulnerabilities
         run: mix deps.audit
 
-  # dialyzer:
-  #   name: Dialyzer
-  #   runs-on: ubuntu-22.04
+  dialyzer:
+    name: Dialyzer
+    runs-on: ubuntu-22.04
 
-  #   env:
-  #     ELIXIR_VERSION: "1.18.4"
-  #     OTP_VERSION: "27"
-  #     MIX_ENV: dev
+    env:
+      ELIXIR_VERSION: "1.19.5"
+      OTP_VERSION: "28.4.1"
+      MIX_ENV: dev
 
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  #     - name: Set up Elixir
-  #       uses: erlef/setup-beam@v1
-  #       with:
-  #         elixir-version: ${{ env.ELIXIR_VERSION }}
-  #         otp-version: ${{ env.OTP_VERSION }}
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
 
-  #     - name: Cache dependencies
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: |
-  #           deps
-  #           _build
-  #         key: ${{ runner.os }}-dialyzer-deps-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-${{ hashFiles('**/mix.lock') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-dialyzer-deps-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-dialyzer-deps-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-dialyzer-deps-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-
 
-  #     - name: Cache PLT
-  #       uses: actions/cache@v4
-  #       id: plt-cache
-  #       with:
-  #         path: priv/plts
-  #         key: ${{ runner.os }}-plt-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-${{ hashFiles('**/mix.lock') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-plt-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-
+      - name: Cache PLT
+        uses: actions/cache@v4
+        id: plt-cache
+        with:
+          path: priv/plts
+          key: ${{ runner.os }}-plt-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-plt-${{ env.ELIXIR_VERSION }}-${{ env.OTP_VERSION }}-
 
-  #     - name: Install SuiteSparse:GraphBLAS
-  #       run: |
-  #         sudo apt-get update
-  #         sudo apt-get install -y libgraphblas-dev pkg-config
+      - name: Install SuiteSparse:GraphBLAS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgraphblas-dev pkg-config
 
-  #     - name: Install dependencies
-  #       run: mix deps.get
+      - name: Install dependencies
+        run: mix deps.get
 
-  #     - name: Compile
-  #       run: mix compile --warnings-as-errors
-  #       env:
-  #         EX_GRAPHBLAS_BUILD: "1"
+      - name: Compile
+        run: mix compile --warnings-as-errors
+        env:
+          EX_GRAPHBLAS_BUILD: "1"
 
-  #     - name: Create PLT directory
-  #       if: steps.plt-cache.outputs.cache-hit != 'true'
-  #       run: mkdir -p priv/plts
+      - name: Create PLT directory
+        if: steps.plt-cache.outputs.cache-hit != 'true'
+        run: mkdir -p priv/plts
 
-  #     - name: Build PLT
-  #       if: steps.plt-cache.outputs.cache-hit != 'true'
-  #       run: mix dialyzer --plt
+      - name: Build PLT
+        if: steps.plt-cache.outputs.cache-hit != 'true'
+        run: mix dialyzer --plt
 
-  #     - name: Run Dialyzer
-  #       run: mix dialyzer --format github
+      - name: Run Dialyzer
+        run: mix dialyzer --format github
