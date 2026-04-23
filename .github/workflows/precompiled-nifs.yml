@@ -138,8 +138,8 @@ jobs:
       - name: Build NIF from source
         env:
           EX_GRAPHBLAS_BUILD: "1"
-          MIX_ENV: prod
-        run: mix compile
+          MIX_ENV: dev
+        run: mix compile --warnings-as-errors
 
       - name: Package artifact
         shell: bash
@@ -234,7 +234,7 @@ jobs:
 
       - name: Compile NIF from source
         env:
-          MIX_ENV: prod
+          MIX_ENV: dev
         run: mix compile
 
       - name: Generate checksum file from GitHub Release
