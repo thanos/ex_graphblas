@@ -28,12 +28,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { target: aarch64-macos-none, os: macos-14 }
-          - { target: x86_64-macos-none, os: macos-14 }
-          - { target: aarch64-linux-gnu, os: ubuntu-22.04 }
+          # - { target: aarch64-macos-none, os: macos-14 }
+          # - { target: x86_64-macos-none, os: macos-14 }
+          # - { target: aarch64-linux-gnu, os: ubuntu-22.04 }
           - { target: x86_64-linux-gnu, os: ubuntu-22.04 }
-          - { target: x86_64-linux-musl, os: ubuntu-22.04 }
-          - { target: aarch64-linux-musl, os: ubuntu-22.04 }
+          # - { target: x86_64-linux-musl, os: ubuntu-22.04 }
+          # - { target: aarch64-linux-musl, os: ubuntu-22.04 }
 
     steps:
       - name: Checkout
