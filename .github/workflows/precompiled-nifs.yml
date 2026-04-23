@@ -66,7 +66,8 @@ jobs:
         run: |
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=/usr/local
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DGRAPHBLAS_BUILD_PKGCONFIG=ON
 
       - name: Build and install GraphBLAS (Linux)
         if: runner.os == 'Linux'
@@ -79,8 +80,15 @@ jobs:
       - name: Verify GraphBLAS installation (Linux)
         if: runner.os == 'Linux'
         run: |
-          export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:${PKG_CONFIG_PATH}"
-          pkg-config --modversion graphblas
+          pc_dir="$(sudo find /usr/local -type f -name 'graphblas.pc' -printf '%h\n' | head -n 1)"
+          if [ -z "$pc_dir" ]; then
+            echo "graphblas.pc not found under /usr/local"
+            sudo find /usr/local -maxdepth 4 -type f -name '*.pc' -print || true
+            exit 1
+          fi
+          echo "PKG_CONFIG_PATH=$pc_dir" >> "$GITHUB_ENV"
+          export PKG_CONFIG_PATH="$pc_dir"
+          pkg-config --print-errors --modversion graphblas
 
       - name: Set PKG_CONFIG_PATH for later steps (Linux)
         if: runner.os == 'Linux'
