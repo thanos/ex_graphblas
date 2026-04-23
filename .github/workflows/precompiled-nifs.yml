@@ -24,6 +24,10 @@ jobs:
     name: NIF - ${{ matrix.target }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
 
+    env:
+      ELIXIR_VERSION: "1.19.5"
+      OTP_VERSION: "28.4.1"
+
     strategy:
       fail-fast: false
       matrix:
@@ -38,6 +42,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
 
       - name: Extract project version
         shell: bash
