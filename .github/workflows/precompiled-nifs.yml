@@ -32,12 +32,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # - { target: aarch64-macos-none, os: macos-14 }
-          # - { target: x86_64-macos-none, os: macos-14 }
-          # - { target: aarch64-linux-gnu, os: ubuntu-22.04 }
+          - { target: aarch64-macos-none, os: macos-14 }
+          - { target: x86_64-macos-none, os: macos-14 }
+          - { target: aarch64-linux-gnu, os: ubuntu-22.04 }
           - { target: x86_64-linux-gnu, os: ubuntu-22.04 }
-          # - { target: x86_64-linux-musl, os: ubuntu-22.04 }
-          # - { target: aarch64-linux-musl, os: ubuntu-22.04 }
+          - { target: x86_64-linux-musl, os: ubuntu-22.04 }
+          - { target: aarch64-linux-musl, os: ubuntu-22.04 }
 
     steps:
       - name: Checkout
@@ -154,7 +154,7 @@ jobs:
           NIF_DIR="_build/dev/lib/ex_graphblas/priv/lib"
           if [ ! -d "$NIF_DIR" ]; then
             echo "::error::NIF directory not found: $NIF_DIR"
-            echo "Existing NIF candidates under _build:" 
+            echo "Existing NIF candidates under _build:"
             find _build -maxdepth 6 -type f -name "Elixir.GraphBLAS.Native*.so" || true
             exit 1
           fi
