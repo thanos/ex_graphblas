@@ -45,59 +45,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             pkg-config \
-            build-essential \
-            clang \
-            cmake \
-            libomp-dev \
-            git
-      - name: Clone SuiteSparse:GraphBLAS
-        run: git clone --depth 1 --branch v9.4.5 https://github.com/DrTimothyAldenDavis/GraphBLAS.git
+            libgraphblas-dev
 
-      - name: Configure GraphBLAS with CMake
-        working-directory: GraphBLAS
-        run: |
-          GRAPHBLAS_PREFIX="${{ github.workspace }}/.graphblas/v9.4.5"
-          cmake -S . -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="$GRAPHBLAS_PREFIX" \
-            -DGRAPHBLAS_BUILD_PKGCONFIG=ON
-
-      - name: Cache GraphBLAS installation
-        uses: actions/cache@v4
-        id: graphblas-cache
-        with:
-          path: ${{ github.workspace }}/.graphblas/v9.4.5
-          key: graphblas-v9.4.5-${{ runner.os }}-${{ runner.arch }}
-
-      - name: Build and install GraphBLAS
-        if: steps.graphblas-cache.outputs.cache-hit != 'true'
-        working-directory: GraphBLAS
-        run: |
-          GRAPHBLAS_PREFIX="${{ github.workspace }}/.graphblas/v9.4.5"
-          cmake --build build -j"$(nproc)"
-          cmake --install build
-
-      - name: Verify GraphBLAS installation and set PKG_CONFIG_PATH
-        run: |
-          prefix="${{ github.workspace }}/.graphblas/v9.4.5"
-
-          # Export PKG_CONFIG_PATH for this step and future steps
-          export PKG_CONFIG_PATH="$prefix/lib/pkgconfig:$prefix/lib64/pkgconfig:${PKG_CONFIG_PATH:-}"
-          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> "$GITHUB_ENV"
-
-          # Export LD_LIBRARY_PATH so the dynamic loader can find libgraphblas
-          export LD_LIBRARY_PATH="$prefix/lib:$prefix/lib64:${LD_LIBRARY_PATH:-}"
-          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
-
-          # Verify a GraphBLAS pkg-config file exists (casing may differ)
-          if ! find "$prefix" -type f \( -name 'GraphBLAS.pc' -o -name 'graphblas.pc' \) | grep -q '\.pc$'; then
-            echo "GraphBLAS pkg-config file not found under $prefix"
-            find "$prefix" -maxdepth 4 -type f -name '*.pc' || true
-            exit 1
-          fi
-
-          # Verify pkg-config can resolve the module (try both common names)
-          pkg-config --print-errors --modversion GraphBLAS || pkg-config --print-errors --modversion graphblas
       - name: Cache dependencies
         uses: actions/cache@v4
         with:
@@ -107,6 +56,7 @@ jobs:
           key: ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
             ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-
+
       - name: Install dependencies
         run: mix deps.get
 
