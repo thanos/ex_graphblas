@@ -29,3 +29,6 @@ ex_graphblas-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Zigler staging files (generated during compilation)
+.Elixir.*.zig
