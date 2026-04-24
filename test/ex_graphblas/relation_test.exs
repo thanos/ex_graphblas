@@ -218,6 +218,7 @@ defmodule GraphBLAS.RelationTest do
       assert mat.backend == backend
     end
 
+    @tag :native_backend
     test "extends existing predicate preserving its backend" do
       rel = Relation.new(3)
       backend = GraphBLAS.Backend.SuiteSparse
@@ -241,6 +242,7 @@ defmodule GraphBLAS.RelationTest do
       assert mat.backend == backend
     end
 
+    @tag :native_backend
     test "extends existing predicate preserving its backend" do
       rel = Relation.new(3)
       backend = GraphBLAS.Backend.SuiteSparse

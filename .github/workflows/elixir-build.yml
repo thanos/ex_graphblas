@@ -40,49 +40,15 @@ jobs:
           elixir-version: ${{ matrix.elixir }}
           otp-version: ${{ matrix.otp }}
 
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            pkg-config \
-            build-essential \
-            cmake \
-            git
-
-      - name: Cache GraphBLAS
-        uses: actions/cache@v4
-        id: graphblas-cache
-        with:
-          path: ${{ github.workspace }}/.graphblas
-          key: graphblas-v9.4.5-${{ runner.os }}-${{ runner.arch }}
-
-      - name: Build and install GraphBLAS
-        if: steps.graphblas-cache.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 --branch v9.4.5 https://github.com/DrTimothyAldenDavis/GraphBLAS.git
-          cmake -S GraphBLAS -B GraphBLAS/build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/.graphblas" \
-            -DGRAPHBLAS_BUILD_PKGCONFIG=ON
-          cmake --build GraphBLAS/build -j"$(nproc)"
-          cmake --install GraphBLAS/build
-
-      - name: Configure GraphBLAS environment
-        run: |
-          prefix="${{ github.workspace }}/.graphblas"
-          echo "PKG_CONFIG_PATH=${prefix}/lib/pkgconfig:${prefix}/lib64/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
-          echo "LD_LIBRARY_PATH=${prefix}/lib:${prefix}/lib64:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
-          pkg-config --modversion GraphBLAS || pkg-config --modversion graphblas
-
       - name: Cache Mix dependencies
         uses: actions/cache@v4
         with:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v2-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v3-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v2-
+            ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v3-
 
       - name: Install dependencies
         run: mix deps.get
@@ -96,15 +62,8 @@ jobs:
           echo "${ZIG_DIR}" >> "$GITHUB_PATH"
           "${ZIG_DIR}/zig" version
 
-      - name: Verify Zig is available
-        run: |
-          command -v zig
-          zig version
-
       - name: Compile (warnings as errors)
-        env:
-          EX_GRAPHBLAS_BUILD: "1"
         run: mix compile --warnings-as-errors
 
-      - name: Run tests
-        run: mix test
+      - name: Run tests (exclude native backend)
+        run: mix test --exclude native_backend

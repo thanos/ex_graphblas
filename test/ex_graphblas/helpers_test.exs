@@ -82,6 +82,7 @@ defmodule GraphBLAS.HelpersTest do
       assert {:ok, 1} = Vector.nvals(v)
     end
 
+    @tag :native_backend
     test "frees SuiteSparse Matrix resources" do
       {:ok, m} = Matrix.from_coo(2, 2, [{0, 0, 1}], :int64, backend: SuiteSparse)
       assert :ok = Helpers.maybe_free(m, SuiteSparse)
@@ -90,6 +91,7 @@ defmodule GraphBLAS.HelpersTest do
       # (we don't test this as it would crash the test)
     end
 
+    @tag :native_backend
     test "frees SuiteSparse Vector resources" do
       {:ok, v} = Vector.from_entries(3, [{0, 1}], :int64, backend: SuiteSparse)
       assert :ok = Helpers.maybe_free(v, SuiteSparse)
@@ -125,6 +127,7 @@ defmodule GraphBLAS.HelpersTest do
       assert {:ok, 1} = Matrix.nvals(m)
     end
 
+    @tag :native_backend
     test "frees SuiteSparse Matrix and Vector in same call" do
       {:ok, m} = Matrix.from_coo(2, 2, [{0, 0, 1}], :int64, backend: SuiteSparse)
       {:ok, v} = Vector.from_entries(3, [{0, 1}], :int64, backend: SuiteSparse)

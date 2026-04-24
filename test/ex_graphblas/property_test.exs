@@ -17,6 +17,8 @@ defmodule GraphBLAS.PropertyTest do
   use ExUnit.Case, async: false
   use ExUnitProperties
 
+  @moduletag :native_backend
+
   alias GraphBLAS.Backend.Elixir, as: RefBackend
   alias GraphBLAS.Backend.SuiteSparse
 

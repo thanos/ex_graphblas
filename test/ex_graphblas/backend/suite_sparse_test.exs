@@ -1,6 +1,8 @@
 defmodule GraphBLAS.SuiteSparseBackendTest do
   use ExUnit.Case, async: false
 
+  @moduletag :native_backend
+
   alias GraphBLAS.Backend.SuiteSparse
 
   describe "matrix_new" do

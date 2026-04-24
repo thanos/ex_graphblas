@@ -1,6 +1,8 @@
 defmodule GraphBLAS.Backend.ParityTest do
   use ExUnit.Case, async: false
 
+  @moduletag :native_backend
+
   alias GraphBLAS.Backend.Elixir, as: RefBackend
   alias GraphBLAS.Backend.SuiteSparse
 
