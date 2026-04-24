@@ -112,7 +112,7 @@ jobs:
 
       - name: Install Zig (avoid mix zig.get on OTP 27.x due to SSL incompatibility)
         run: |
-          ZIG_VERSION="0.13.0"
+          ZIG_VERSION="0.15.2"
           curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-x86_64-${ZIG_VERSION}.tar.xz" -o zig.tar.xz
           tar -xf zig.tar.xz
           ZIG_DIR="${PWD}/zig-linux-x86_64-${ZIG_VERSION}"
