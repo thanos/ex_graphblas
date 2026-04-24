@@ -2,16 +2,14 @@ name: Precompiled NIFs
 
 on:
   push:
+    # Only run this workflow automatically when pushing a version tag
+    # like v0.2.0. Regular pushes to branches will not trigger it.
     tags:
       - "v*"
-    branches:
-      - main
-    paths:
-      - "lib/ex_graphblas/native.ex"
-      - ".github/workflows/precompiled-nifs.yml"
   pull_request:
     paths:
       - ".github/workflows/precompiled-nifs.yml"
+      - "lib/ex_graphblas/native.ex"
   workflow_dispatch:
 
 permissions:
@@ -252,7 +250,7 @@ jobs:
       - name: Generate checksum file from GitHub Release
         run: mix zigler_precompiled.download GraphBLAS.Native --all --print 2>/dev/null
 
-      # - name: Publish to Hex
-      #   run: mix hex.publish --yes
-      #   env:
-      #     HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+      - name: Publish to Hex
+        run: mix hex.publish --yes
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}

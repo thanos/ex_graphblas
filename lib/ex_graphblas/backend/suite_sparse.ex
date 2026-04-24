@@ -1,5 +1,14 @@
 defmodule GraphBLAS.Backend.SuiteSparse do
-  @moduledoc false
+  @moduledoc """
+  SuiteSparse:GraphBLAS-backed implementation of the `GraphBLAS.Backend` behaviour.
+
+  This backend delegates all compute-heavy operations to the native
+  SuiteSparse:GraphBLAS C library via the `GraphBLAS.Native` NIF module.
+
+  It is intended for production use once SuiteSparse is installed and
+  correctly configured. For development and testing, the
+  `GraphBLAS.Backend.Elixir` backend remains the safer default.
+  """
 
   @behaviour GraphBLAS.Backend
 

@@ -36,8 +36,22 @@ defmodule GraphBLAS.MixProject do
         "coveralls.html": :test
       ],
       docs: [
-        main: "GraphBLAS",
-        extras: ["README.md", "LICENSE"]
+        # Hex.pm landing page: /doc/readme.html
+        main: "readme",
+        extras: [
+          {"README.md", [title: "GraphBLAS"]},
+          "LICENSE",
+          {"guides/installation_guide.md", [group: "Guides", title: "Installation"]},
+          {"guides/architecture_walkthrough.md",
+           [group: "Guides", title: "Architecture walkthrough"]},
+          {"guides/reference_backend_walkthrough.md",
+           [group: "Guides", title: "Reference backend"]},
+          {"guides/native_backend_walkthrough.md", [group: "Guides", title: "Native backend"]},
+          {"guides/graph_algorithms_guide.md", [group: "Guides", title: "Graph algorithms"]},
+          {"guides/masks_and_descriptors_guide.md",
+           [group: "Guides", title: "Masks and descriptors"]},
+          {"guides/parity_testing_guide.md", [group: "Guides", title: "Parity testing"]}
+        ]
       ],
       package: package(),
       description: description(),
