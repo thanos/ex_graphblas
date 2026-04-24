@@ -3,12 +3,20 @@ defmodule GraphBLAS.Application do
 
   use Application
 
+  @native_mod GraphBLAS.Native.SuiteSparse
+
   @impl true
   def start(_type, _args) do
-    try do
-      GraphBLAS.Native.grb_init()
-    rescue
-      _ -> :ok
+    case Code.ensure_loaded(@native_mod) do
+      {:module, mod} ->
+        try do
+          mod.grb_init()
+        rescue
+          _ -> :ok
+        end
+
+      {:error, _} ->
+        :ok
     end
 
     children = []
@@ -18,7 +26,18 @@ defmodule GraphBLAS.Application do
 
   @impl true
   def stop(_state) do
-    GraphBLAS.Native.grb_finalize()
+    case Code.ensure_loaded(@native_mod) do
+      {:module, mod} ->
+        try do
+          mod.grb_finalize()
+        rescue
+          _ -> :ok
+        end
+
+      {:error, _} ->
+        :ok
+    end
+
     :ok
   end
 end

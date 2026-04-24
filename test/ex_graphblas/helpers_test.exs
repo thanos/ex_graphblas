@@ -2,7 +2,11 @@ defmodule GraphBLAS.HelpersTest do
   use ExUnit.Case, async: true
 
   alias GraphBLAS.Backend.Elixir, as: ElixirBackend
-  alias GraphBLAS.Backend.SuiteSparse
+
+  if System.get_env("EX_GRAPHBLAS_COMPILE_NATIVE") in ["1", "true"] do
+    alias GraphBLAS.Backend.SuiteSparse
+  end
+
   alias GraphBLAS.{Error, Helpers, Matrix, Scalar, Vector}
 
   describe "ok/1" do
@@ -82,22 +86,18 @@ defmodule GraphBLAS.HelpersTest do
       assert {:ok, 1} = Vector.nvals(v)
     end
 
-    @tag :native_backend
-    test "frees SuiteSparse Matrix resources" do
-      {:ok, m} = Matrix.from_coo(2, 2, [{0, 0, 1}], :int64, backend: SuiteSparse)
-      assert :ok = Helpers.maybe_free(m, SuiteSparse)
+    if System.get_env("EX_GRAPHBLAS_COMPILE_NATIVE") in ["1", "true"] do
+      @tag :native_backend
+      test "frees SuiteSparse Matrix resources" do
+        {:ok, m} = Matrix.from_coo(2, 2, [{0, 0, 1}], :int64, backend: SuiteSparse)
+        assert :ok = Helpers.maybe_free(m, SuiteSparse)
+      end
 
-      # After freeing, accessing the freed resource would cause issues
-      # (we don't test this as it would crash the test)
-    end
-
-    @tag :native_backend
-    test "frees SuiteSparse Vector resources" do
-      {:ok, v} = Vector.from_entries(3, [{0, 1}], :int64, backend: SuiteSparse)
-      assert :ok = Helpers.maybe_free(v, SuiteSparse)
-
-      # After freeing, accessing the freed resource would cause issues
-      # (we don't test this as it would crash the test)
+      @tag :native_backend
+      test "frees SuiteSparse Vector resources" do
+        {:ok, v} = Vector.from_entries(3, [{0, 1}], :int64, backend: SuiteSparse)
+        assert :ok = Helpers.maybe_free(v, SuiteSparse)
+      end
     end
 
     test "is no-op for unknown backend with Matrix" do
@@ -127,13 +127,15 @@ defmodule GraphBLAS.HelpersTest do
       assert {:ok, 1} = Matrix.nvals(m)
     end
 
-    @tag :native_backend
-    test "frees SuiteSparse Matrix and Vector in same call" do
-      {:ok, m} = Matrix.from_coo(2, 2, [{0, 0, 1}], :int64, backend: SuiteSparse)
-      {:ok, v} = Vector.from_entries(3, [{0, 1}], :int64, backend: SuiteSparse)
+    if System.get_env("EX_GRAPHBLAS_COMPILE_NATIVE") in ["1", "true"] do
+      @tag :native_backend
+      test "frees SuiteSparse Matrix and Vector in same call" do
+        {:ok, m} = Matrix.from_coo(2, 2, [{0, 0, 1}], :int64, backend: SuiteSparse)
+        {:ok, v} = Vector.from_entries(3, [{0, 1}], :int64, backend: SuiteSparse)
 
-      assert :ok = Helpers.maybe_free(m, SuiteSparse)
-      assert :ok = Helpers.maybe_free(v, SuiteSparse)
+        assert :ok = Helpers.maybe_free(m, SuiteSparse)
+        assert :ok = Helpers.maybe_free(v, SuiteSparse)
+      end
     end
   end
 
@@ -159,10 +161,12 @@ defmodule GraphBLAS.HelpersTest do
 
   describe "maybe_free/2 edge cases" do
     test "handles arbitrary container with arbitrary backend" do
-      # Non-Matrix/Vector container
       assert :ok = Helpers.maybe_free(:not_a_container, SomeBackend)
       assert :ok = Helpers.maybe_free("string", ElixirBackend)
-      assert :ok = Helpers.maybe_free(%{custom: :struct}, SuiteSparse)
+
+      if System.get_env("EX_GRAPHBLAS_COMPILE_NATIVE") in ["1", "true"] do
+        assert :ok = Helpers.maybe_free(%{custom: :struct}, SuiteSparse)
+      end
     end
 
     test "handles Matrix with wrong backend field type" do

@@ -218,15 +218,17 @@ defmodule GraphBLAS.RelationTest do
       assert mat.backend == backend
     end
 
-    @tag :native_backend
-    test "extends existing predicate preserving its backend" do
-      rel = Relation.new(3)
-      backend = GraphBLAS.Backend.SuiteSparse
-      {:ok, rel} = Relation.add_triples(rel, :edge, [{0, 1}], backend: backend)
-      {:ok, rel} = Relation.add_triples(rel, :edge, [{1, 2}])
+    if System.get_env("EX_GRAPHBLAS_COMPILE_NATIVE") in ["1", "true"] do
+      @tag :native_backend
+      test "extends existing predicate preserving its backend" do
+        rel = Relation.new(3)
+        backend = GraphBLAS.Backend.SuiteSparse
+        {:ok, rel} = Relation.add_triples(rel, :edge, [{0, 1}], backend: backend)
+        {:ok, rel} = Relation.add_triples(rel, :edge, [{1, 2}])
 
-      {:ok, mat} = Relation.matrix(rel, :edge)
-      assert mat.backend == backend
+        {:ok, mat} = Relation.matrix(rel, :edge)
+        assert mat.backend == backend
+      end
     end
   end
 
@@ -242,18 +244,20 @@ defmodule GraphBLAS.RelationTest do
       assert mat.backend == backend
     end
 
-    @tag :native_backend
-    test "extends existing predicate preserving its backend" do
-      rel = Relation.new(3)
-      backend = GraphBLAS.Backend.SuiteSparse
+    if System.get_env("EX_GRAPHBLAS_COMPILE_NATIVE") in ["1", "true"] do
+      @tag :native_backend
+      test "extends existing predicate preserving its backend" do
+        rel = Relation.new(3)
+        backend = GraphBLAS.Backend.SuiteSparse
 
-      {:ok, rel} =
-        Relation.add_weighted_triples(rel, :dist, [{0, 1, 5}], :int64, backend: backend)
+        {:ok, rel} =
+          Relation.add_weighted_triples(rel, :dist, [{0, 1, 5}], :int64, backend: backend)
 
-      {:ok, rel} = Relation.add_weighted_triples(rel, :dist, [{1, 2, 3}], :int64)
+        {:ok, rel} = Relation.add_weighted_triples(rel, :dist, [{1, 2, 3}], :int64)
 
-      {:ok, mat} = Relation.matrix(rel, :dist)
-      assert mat.backend == backend
+        {:ok, mat} = Relation.matrix(rel, :dist)
+        assert mat.backend == backend
+      end
     end
   end
 

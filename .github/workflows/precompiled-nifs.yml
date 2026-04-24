@@ -9,7 +9,8 @@ on:
   pull_request:
     paths:
       - ".github/workflows/precompiled-nifs.yml"
-      - "lib/ex_graphblas/native.ex"
+      - "native/suite_sparse.ex"
+      - "priv/native/suite_sparse/"
   workflow_dispatch:
 
 permissions:
@@ -148,12 +149,12 @@ jobs:
         shell: bash
         run: |
           VERSION="${PROJECT_VERSION}"
-          BASENAME="Elixir.GraphBLAS.Native"
+          BASENAME="Elixir.GraphBLAS.Native.SuiteSparse"
           NIF_DIR="_build/dev/lib/ex_graphblas/priv/lib"
           if [ ! -d "$NIF_DIR" ]; then
             echo "::error::NIF directory not found: $NIF_DIR"
             echo "Existing NIF candidates under _build:"
-            find _build -maxdepth 6 -type f -name "Elixir.GraphBLAS.Native*.so" || true
+            find _build -maxdepth 6 -type f -name "Elixir.GraphBLAS.Native.SuiteSparse*.so" || true
             exit 1
           fi
           mkdir -p artifacts
@@ -178,7 +179,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Elixir.GraphBLAS.Native-v${{ env.PROJECT_VERSION }}-${{ matrix.target }}
+          name: Elixir.GraphBLAS.Native.SuiteSparse-v${{ env.PROJECT_VERSION }}-${{ matrix.target }}
           path: artifacts/*.tar.gz
 
   release:
@@ -248,7 +249,7 @@ jobs:
         run: mix compile
 
       - name: Generate checksum file from GitHub Release
-        run: mix zigler_precompiled.download GraphBLAS.Native --all --print 2>/dev/null
+        run: mix zigler_precompiled.download GraphBLAS.Native.SuiteSparse --all --print 2>/dev/null
 
       - name: Publish to Hex
         run: mix hex.publish --yes

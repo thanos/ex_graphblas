@@ -46,9 +46,9 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v3-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v5-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v3-
+            ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v5-
 
       - name: Install dependencies
         run: mix deps.get
@@ -65,5 +65,5 @@ jobs:
       - name: Compile (warnings as errors)
         run: mix compile --warnings-as-errors
 
-      - name: Run tests (exclude native backend)
-        run: mix test --exclude native_backend
+      - name: Run tests
+        run: mix test

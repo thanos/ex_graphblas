@@ -1,7 +1,7 @@
 defmodule GraphBLAS.AlgorithmTest do
   use ExUnit.Case, async: true
 
-  alias GraphBLAS.{Algorithm, Mask, Matrix, Vector}
+  alias GraphBLAS.{Algorithm, Matrix, Vector}
 
   describe "bfs_reach/3" do
     test "reaches all vertices on a chain graph" do
@@ -316,7 +316,7 @@ defmodule GraphBLAS.AlgorithmTest do
       {:ok, adj} =
         Matrix.from_coo(3, 3, [{0, 1, true}, {1, 0, true}, {1, 2, true}, {2, 1, true}], :bool)
 
-      {:ok, result, info} =
+      {:ok, _result, info} =
         Algorithm.fixed_point(
           adj,
           fn p ->

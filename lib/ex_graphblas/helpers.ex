@@ -2,7 +2,6 @@ defmodule GraphBLAS.Helpers do
   @moduledoc false
 
   alias GraphBLAS.Backend.Elixir, as: ElixirBackend
-  alias GraphBLAS.Backend.SuiteSparse
   alias GraphBLAS.{Matrix, Scalar, Vector}
 
   @doc """
@@ -21,20 +20,29 @@ defmodule GraphBLAS.Helpers do
   def ok(:ok), do: :ok
 
   @doc """
-  Frees SuiteSparse backend resources for containers.
+  Frees backend resources for containers.
 
-  For Elixir backend, this is a no-op. For SuiteSparse backend,
-  calls the appropriate free function. For other backends, no-op.
+  For Elixir backend, this is a no-op. For backends that export
+  `matrix_free`/`vector_free` (e.g. SuiteSparse), calls the appropriate
+  free function. For other backends, no-op.
   """
   @spec maybe_free(Matrix.t() | Vector.t(), module()) :: :ok
   def maybe_free(_container, ElixirBackend), do: :ok
 
-  def maybe_free(%Matrix{} = m, SuiteSparse) do
-    SuiteSparse.matrix_free(m)
+  def maybe_free(%Matrix{} = m, backend) do
+    if Code.ensure_loaded?(backend) and function_exported?(backend, :matrix_free, 1) do
+      backend.matrix_free(m)
+    else
+      :ok
+    end
   end
 
-  def maybe_free(%Vector{} = v, SuiteSparse) do
-    SuiteSparse.vector_free(v)
+  def maybe_free(%Vector{} = v, backend) do
+    if Code.ensure_loaded?(backend) and function_exported?(backend, :vector_free, 1) do
+      backend.vector_free(v)
+    else
+      :ok
+    end
   end
 
   def maybe_free(_container, _backend), do: :ok

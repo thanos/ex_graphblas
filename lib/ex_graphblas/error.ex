@@ -64,6 +64,7 @@ defmodule GraphBLAS.Error do
           | {:type_mismatch, term(), term()}
           | {:unsupported_type, term()}
           | {:unsupported_operation, atom(), module()}
+          | {:unsupported_operation, module()}
           | {:backend_error, module(), term()}
           | {:null_handle, atom()}
           | {:invalid_argument, term()}
@@ -149,6 +150,10 @@ defmodule GraphBLAS.Error do
 
   defp format_reason({:unsupported_operation, op, backend}) do
     "Operation #{inspect(op)} not supported by backend #{inspect(backend)}"
+  end
+
+  defp format_reason({:unsupported_operation, backend}) do
+    "Operation not supported by backend #{inspect(backend)}"
   end
 
   defp format_reason({:backend_error, backend, detail}) do

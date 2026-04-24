@@ -80,9 +80,18 @@ defmodule GraphBLAS.MixProject do
     ]
   end
 
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(:dev), do: ["lib", "bench"]
-  defp elixirc_paths(_), do: ["lib"]
+  defp elixirc_paths(:test) do
+    paths = ["lib", "test/support"]
+
+    if System.get_env("EX_GRAPHBLAS_COMPILE_NATIVE") in ["1", "true"] do
+      paths ++ ["native"]
+    else
+      paths
+    end
+  end
+
+  defp elixirc_paths(:dev), do: ["lib", "native", "bench"]
+  defp elixirc_paths(_), do: ["lib", "native"]
 
   defp description do
     "Sparse linear algebra and graph computation in Elixir, inspired by the GraphBLAS standard."
