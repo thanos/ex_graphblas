@@ -22,10 +22,10 @@ jobs:
           #   otp: "26"
           # - elixir: "1.20.0-rc.3"
           #   otp: "28.4.1"
-          # # Latest stable versions
-          # - elixir: "1.19.5"
-          #   otp: "28.4.1"
-          #   coverage: true
+          # Latest stable versions
+          - elixir: "1.19.5"
+            otp: "28.4.1"
+            coverage: true
           # Previous versions for compatibility
           - elixir: "1.18.4"
             otp: "27.3"
