@@ -718,7 +718,7 @@ defmodule GraphBLAS.SuiteSparseBackendTest do
 
     test "returns default for structural zero (fp64)" do
       {:ok, m} = SuiteSparse.matrix_from_coo(2, 2, [{0, 0, 1.5}], :fp64, [])
-      assert {:ok, 0.0} = SuiteSparse.matrix_extract(m, 1, 1)
+      assert {:ok, +0.0} = SuiteSparse.matrix_extract(m, 1, 1)
       SuiteSparse.matrix_free(m)
     end
 
@@ -846,7 +846,7 @@ defmodule GraphBLAS.SuiteSparseBackendTest do
 
     test "returns default for structural zero (fp64)" do
       {:ok, v} = SuiteSparse.vector_from_entries(3, [{0, 1.5}], :fp64, [])
-      assert {:ok, 0.0} = SuiteSparse.vector_extract(v, 1)
+      assert {:ok, +0.0} = SuiteSparse.vector_extract(v, 1)
       SuiteSparse.vector_free(v)
     end
 

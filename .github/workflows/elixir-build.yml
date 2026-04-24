@@ -46,6 +46,9 @@ jobs:
           sudo apt-get install -y \
             pkg-config \
             libgraphblas-dev
+          sudo ldconfig
+          LIB_DIR=$(dirname "$(dpkg -L libgraphblas-dev | grep 'libgraphblas\.so' | head -1)")
+          echo "LD_LIBRARY_PATH=${LIB_DIR}:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
 
       - name: Cache dependencies
         uses: actions/cache@v4
