@@ -110,7 +110,17 @@ jobs:
       - name: Install dependencies
         run: mix deps.get
 
+      - name: Install Zig (avoid mix zig.get on OTP 27.x due to SSL incompatibility)
+        run: |
+          ZIG_VERSION="0.13.0"
+          curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-x86_64-${ZIG_VERSION}.tar.xz" -o zig.tar.xz
+          tar -xf zig.tar.xz
+          echo "${PWD}/zig-linux-x86_64-${ZIG_VERSION}" >> "$GITHUB_PATH"
+          zig version
+
       - name: Compile (warnings as errors)
+        env:
+          EX_GRAPHBLAS_BUILD: "1"
         run: mix compile --warnings-as-errors
 
       - name: Run tests
