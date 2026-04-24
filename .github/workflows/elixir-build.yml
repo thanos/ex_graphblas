@@ -43,27 +43,51 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libgraphblas-dev
-          sudo ldconfig
-          # Find where libgraphblas lives and export it for the runtime linker
-          LIB_DIR=$(dirname "$(find / -name 'libgraphblas.so.*' -type f 2>/dev/null | head -1)")
-          echo "Found libgraphblas in: ${LIB_DIR}"
-          echo "LD_LIBRARY_PATH=${LIB_DIR}:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+          sudo apt-get install -y \
+            pkg-config \
+            build-essential \
+            cmake \
+            git
 
-      - name: Cache dependencies
+      - name: Cache GraphBLAS
+        uses: actions/cache@v4
+        id: graphblas-cache
+        with:
+          path: ${{ github.workspace }}/.graphblas
+          key: graphblas-v9.4.5-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Build and install GraphBLAS
+        if: steps.graphblas-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v9.4.5 https://github.com/DrTimothyAldenDavis/GraphBLAS.git
+          cmake -S GraphBLAS -B GraphBLAS/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/.graphblas" \
+            -DGRAPHBLAS_BUILD_PKGCONFIG=ON
+          cmake --build GraphBLAS/build -j"$(nproc)"
+          cmake --install GraphBLAS/build
+
+      - name: Configure GraphBLAS environment
+        run: |
+          prefix="${{ github.workspace }}/.graphblas"
+          echo "PKG_CONFIG_PATH=${prefix}/lib/pkgconfig:${prefix}/lib64/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=${prefix}/lib:${prefix}/lib64:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+          pkg-config --modversion GraphBLAS || pkg-config --modversion graphblas
+
+      - name: Cache Mix dependencies
         uses: actions/cache@v4
         with:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v2-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-
+            ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v2-
 
       - name: Install dependencies
         run: mix deps.get
 
-      - name: Install Zig (avoid mix zig.get on OTP 27.x due to SSL incompatibility)
+      - name: Install Zig
         run: |
           ZIG_VERSION="0.15.2"
           curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz" -o zig.tar.xz
