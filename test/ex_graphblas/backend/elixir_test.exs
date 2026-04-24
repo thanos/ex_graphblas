@@ -277,7 +277,7 @@ defmodule GraphBLAS.Backend.ElixirTest do
 
     test "returns default for structural zero (fp64)" do
       {:ok, m} = RefBackend.matrix_from_coo(2, 2, [{0, 0, 1.5}], :fp64, [])
-      assert {:ok, 0.0} = RefBackend.matrix_extract(m, 1, 1)
+      assert {:ok, +0.0} = RefBackend.matrix_extract(m, 1, 1)
     end
 
     test "rejects out-of-bounds row" do
@@ -345,7 +345,7 @@ defmodule GraphBLAS.Backend.ElixirTest do
 
     test "returns default for structural zero (fp64)" do
       {:ok, v} = RefBackend.vector_from_entries(3, [{0, 1.5}], :fp64, [])
-      assert {:ok, 0.0} = RefBackend.vector_extract(v, 1)
+      assert {:ok, +0.0} = RefBackend.vector_extract(v, 1)
     end
 
     test "returns default for structural zero (bool)" do
