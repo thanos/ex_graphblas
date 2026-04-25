@@ -38,7 +38,7 @@ The SuiteSparse backend provides high-performance sparse operations via the Suit
 brew install suite-sparse
 ```
 
-SuiteSparse headers install to `/opt/homebrew/include/suitesparse`. This is the default include path.
+On Apple Silicon Macs, SuiteSparse headers install to `/opt/homebrew/include/suitesparse` (the default include path). On Intel Macs, headers install to `/usr/local/include/suitesparse` -- set the `SUITESPARSE_INCLUDE_PATH` environment variable accordingly.
 
 ### Linux (Debian/Ubuntu)
 
@@ -179,7 +179,7 @@ mix compile --force
 Check the compilation output for Zig/C errors. Common causes:
 - SuiteSparse not installed
 - Wrong include path
-- Incompatible SuiteSparse version (requires >= 7.0)
+- Incompatible SuiteSparse version (requires >= 9.4.5)
 
 ### "function clause error" on Vector.nvals with SuiteSparse
 

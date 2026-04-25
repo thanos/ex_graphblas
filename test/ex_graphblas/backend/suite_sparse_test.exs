@@ -1013,4 +1013,13 @@ if System.get_env("EX_GRAPHBLAS_COMPILE_NATIVE") in ["1", "true"] do
       Enum.sort_by(entries, fn {i, _v} -> i end)
     end
   end
+else
+  defmodule GraphBLAS.SuiteSparseBackendTest do
+    use ExUnit.Case
+    @moduletag :skip
+    @tag :native_backend
+    test "skipped: native backend not compiled (set EX_GRAPHBLAS_COMPILE_NATIVE=1)" do
+      :ok
+    end
+  end
 end

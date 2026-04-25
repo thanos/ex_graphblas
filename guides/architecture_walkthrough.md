@@ -186,9 +186,9 @@ If calling code pattern-matched on the data field, it would break when switching
 
 **Rule**: Never access the `:data` field directly. Always use API functions.
 
-## Masks and descriptors (what's coming)
+## Masks and descriptors
 
-Masks and descriptors are defined in Phase 1 but not yet wired into operations. Here is a preview:
+Masks and descriptors are fully implemented and supported on all compute operations.
 
 ### Masks
 
@@ -196,9 +196,10 @@ Masks and descriptors are defined in Phase 1 but not yet wired into operations. 
 # A mask restricts which output positions are written
 mask = GraphBLAS.Mask.new(frontier)         # write only where frontier has stored entries
 cmask = GraphBLAS.Mask.complement(frontier)  # write only where frontier does NOT have stored entries
-```
 
-Masks will be passed as options: `GraphBLAS.Matrix.mxm(a, b, :plus_times, mask: mask)`
+# Pass as an option to any compute operation
+{:ok, result} = GraphBLAS.Matrix.mxm(a, b, :plus_times, mask: mask)
+```
 
 ### Descriptors
 
@@ -206,15 +207,17 @@ Masks will be passed as options: `GraphBLAS.Matrix.mxm(a, b, :plus_times, mask: 
 # A descriptor modifies how the operation interprets inputs and outputs
 desc = GraphBLAS.Descriptor.new(inp0_transpose: :transpose)
 # This tells mxm to treat A as if it were transposed, without creating A^T
+
+{:ok, result} = GraphBLAS.Matrix.mxm(a, b, :plus_times, descriptor: desc)
 ```
 
-Descriptors will be passed as: `GraphBLAS.Matrix.mxm(a, b, :plus_times, descriptor: desc)`
+See the [Masks and descriptors guide](masks_and_descriptors_guide.md) for full details.
 
-## Next steps
+## Completed phases
 
-- **Phase 2 (done)**: The Elixir reference backend now uses flat tuple-key maps and has semantic correctness tests. Dense conversion helpers (`Matrix.to_dense`, `Vector.to_list`) added.
-- **Phase 3**: SuiteSparse native backend via Zigler
-- **Phase 3**: More operations (additional semirings, assignment, extraction)
+- **Phase 1**: Core data structures, Backend behaviour, architecture
+- **Phase 2**: Elixir reference backend with flat tuple-key maps, semantic correctness tests, dense conversion helpers
+- **Phase 3**: SuiteSparse native backend via Zigler, additional semirings, assignment, extraction
 - **Phase 4**: Full mask and descriptor support in compute operations
-- **Phase 5**: Graph algorithms built on the operations API (BFS, PageRank, triangle counting)
-- **Phase 6**: Nx integration (conversion helpers, reference adapter)
+- **Phase 5**: Graph algorithms (BFS, SSSP, triangle count, connected components, PageRank, degree)
+- **Phase 6**: Knowledge graph queries (`GraphBLAS.Relation`), transitive closure, fixed-point iteration

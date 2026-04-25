@@ -145,6 +145,11 @@ defmodule GraphBLAS.Algorithm do
 
   The adjacency matrix must be fp64 with edge weights as entries.
   Uses the `:min_plus_fp64` semiring. Converges when distances stop changing.
+
+  Options:
+  - `:max_iter` -- maximum iterations (default: 100)
+  - `:infinity` -- sentinel value for unreachable vertices (default: 1.0e18)
+  - `:backend` -- override the default backend
   """
   @spec sssp(Matrix.t(), non_neg_integer(), keyword()) ::
           {:ok, Vector.t()} | {:error, Error.t()}
@@ -152,19 +157,20 @@ defmodule GraphBLAS.Algorithm do
     with :ok <- validate_source(source, n) do
       backend = Config.resolve_backend(opts)
       max_iter = Keyword.get(opts, :max_iter, @default_max_iter)
+      inf = Keyword.get(opts, :infinity, @sssp_inf)
 
-      entries = for i <- 0..(n - 1), do: {i, if(i == source, do: 0.0, else: @sssp_inf)}
+      entries = for i <- 0..(n - 1), do: {i, if(i == source, do: 0.0, else: inf)}
 
       with {:ok, dist} <- Vector.from_entries(n, entries, :fp64, backend: backend),
            {:ok, final} <- sssp_loop(adj, dist, 0, max_iter, backend) do
-        sssp_strip_inf(final, n, backend)
+        sssp_strip_inf(final, n, inf, backend)
       end
     end
   end
 
-  defp sssp_strip_inf(dist, n, backend) do
+  defp sssp_strip_inf(dist, n, inf, backend) do
     {:ok, entries} = Vector.to_entries(dist)
-    reachable = Enum.reject(entries, fn {_, v} -> v >= @sssp_inf end)
+    reachable = Enum.reject(entries, fn {_, v} -> v >= inf end)
     Vector.from_entries(n, reachable, :fp64, backend: backend)
   end
 
@@ -255,8 +261,7 @@ defmodule GraphBLAS.Algorithm do
   end
 
   defp cc_expand_component(adj, component, unvisited, backend) do
-    {:ok, unvisited_entries} = Vector.to_entries(unvisited)
-    {v, _} = hd(unvisited_entries)
+    {:ok, [{v, _} | _]} = Vector.to_entries(unvisited)
 
     with {:ok, visited} <- bfs_reach(adj, v, backend: backend),
          {:ok, comp_val} <- Vector.extract(component, v),
@@ -394,11 +399,21 @@ defmodule GraphBLAS.Algorithm do
   `max_iter` is reached. Returns `{:ok, final_value, info}` where
   info contains `%{iterations: n, converged: boolean}`.
 
+  ## Default convergence behavior
+
+  When no `:convergence_fn` is provided:
+
+  - **Matrices** -- exact comparison of sorted COO entries (ignores `:tol`)
+  - **Vectors with `tol > 0`** -- all entries differ by less than `:tol`
+  - **Vectors with `tol == 0`** -- exact comparison of sorted entries
+  - **Other values** -- never converges (always runs to `max_iter`)
+
   ## Options
 
   - `:max_iter` -- maximum iterations (default: 100)
-  - `:tol` -- convergence tolerance for fp64 (default: 1.0e-6)
-  - `:convergence_fn` -- custom convergence check `(old, new -> boolean)`
+  - `:tol` -- convergence tolerance for fp64 vectors (default: 1.0e-6)
+  - `:convergence_fn` -- custom convergence check `(old, new -> boolean)`, overrides the defaults above
+  - `:backend` -- override the default backend
   """
   @spec fixed_point(term(), (term() -> {:ok, term()} | {:error, Error.t()}), keyword()) ::
           {:ok, term(), map()} | {:error, Error.t()}

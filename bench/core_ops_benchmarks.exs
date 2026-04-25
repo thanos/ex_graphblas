@@ -167,8 +167,15 @@ Benchee.run(
 
 # --- mxv ---
 
-{:ok, v100_elixir} = Vector.from_entries(100, Enum.map(0..99, fn i -> {i, :rand.uniform(10)} end), :int64, backend: RefBackend)
-{:ok, v100_ss} = Vector.from_entries(100, Enum.map(0..99, fn i -> {i, :rand.uniform(10)} end), :int64, backend: SuiteSparse)
+{:ok, v100_elixir} =
+  Vector.from_entries(100, Enum.map(0..99, fn i -> {i, :rand.uniform(10)} end), :int64,
+    backend: RefBackend
+  )
+
+{:ok, v100_ss} =
+  Vector.from_entries(100, Enum.map(0..99, fn i -> {i, :rand.uniform(10)} end), :int64,
+    backend: SuiteSparse
+  )
 
 IO.puts("\n=== mxv (100x100 * 100, :plus_times) ===")
 

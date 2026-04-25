@@ -8,7 +8,7 @@ An Elixir library for sparse linear algebra and graph computation, inspired by t
 [![HexDocs.pm](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/ex_graphblas)
 [![Precompiled NIFs](https://github.com/thanos/ex_graphblas/actions/workflows/precompiled-nifs.yml/badge.svg)](https://github.com/thanos/ex_graphblas/actions/workflows/precompiled-nifs.yml)
 
-GraphBLAS provides idiomatic Elixir data structures at the boundary while delegating computation to swappable backends. The same code runs on a pure Elixir reference backend for development and testing, and on SuiteSparse:GraphBLAS via Zigler NIFs for native performance in production.
+GraphBLAS provides idiomatic Elixir data structures at the boundary while delegating computation to swappable backends. The same code runs on a pure Elixir reference backend for development and testing, on SuiteSparse:GraphBLAS via Zigler NIFs for native performance in production, and on a minimal ZigStub backend for CI verification without native dependencies.
 
 ## Contents
 
@@ -43,6 +43,7 @@ GraphBLAS.Matrix / GraphBLAS.Vector    -- public API (backend-neutral)
 GraphBLAS.Backend                      -- behaviour defining the computation contract
 GraphBLAS.Backend.Elixir               -- pure Elixir reference implementation
 GraphBLAS.Backend.SuiteSparse          -- SuiteSparse:GraphBLAS via Zigler NIFs
+GraphBLAS.Backend.ZigStub              -- minimal Zig NIF backend for CI verification
 ```
 
 Each `%Matrix{}` and `%Vector{}` struct carries a `backend` field, so inspection and mutation operations dispatch to the correct backend automatically.
@@ -224,6 +225,14 @@ Or in your `config/config.exs`:
     config :ex_graphblas, suitesparse_include_path: "/opt/homebrew/include/suitesparse"
 
 See `guides/installation_guide.md` for platform-specific instructions.
+
+### Environment variables
+
+| Variable | Purpose |
+|----------|---------|
+| `SUITESPARSE_INCLUDE_PATH` | Path to SuiteSparse headers (default: `/opt/homebrew/include/suitesparse`) |
+| `EX_GRAPHBLAS_BUILD` | Set to `1` to force building NIFs from source instead of using precompiled binaries |
+| `EX_GRAPHBLAS_COMPILE_NATIVE` | Set to `1` to include the SuiteSparse backend in test compilation |
 
 ## Guides
 

@@ -40,8 +40,11 @@ Benchee.run(
 size_levels = 200
 rand_entries = BenchData.random_graph(size_levels, 0.05)
 
-{:ok, ref_bfs_rand} = RefBackend.matrix_from_coo(size_levels, size_levels, rand_entries, :bool, [])
-{:ok, ss_bfs_rand} = SuiteSparse.matrix_from_coo(size_levels, size_levels, rand_entries, :bool, [])
+{:ok, ref_bfs_rand} =
+  RefBackend.matrix_from_coo(size_levels, size_levels, rand_entries, :bool, [])
+
+{:ok, ss_bfs_rand} =
+  SuiteSparse.matrix_from_coo(size_levels, size_levels, rand_entries, :bool, [])
 
 IO.puts("\n=== bfs_levels (random graph, #{size_levels} vertices, 5% density) ===\n")
 
@@ -113,7 +116,9 @@ cc_entries = BenchData.undirected_random_graph(size_cc, 0.05)
 {:ok, ref_cc} = RefBackend.matrix_from_coo(size_cc, size_cc, cc_entries, :bool, [])
 {:ok, ss_cc} = SuiteSparse.matrix_from_coo(size_cc, size_cc, cc_entries, :bool, [])
 
-IO.puts("\n=== connected_components (undirected random graph, #{size_cc} vertices, 5% density) ===\n")
+IO.puts(
+  "\n=== connected_components (undirected random graph, #{size_cc} vertices, 5% density) ===\n"
+)
 
 Benchee.run(
   %{
@@ -293,4 +298,6 @@ SuiteSparse.matrix_free(ss_pr)
 SuiteSparse.matrix_free(ss_fp)
 GraphBLAS.Native.grb_finalize()
 
-IO.puts("\n=====================================\nPhase 6 algorithm benchmarks complete.\n=====================================\n")
+IO.puts(
+  "\n=====================================\nPhase 6 algorithm benchmarks complete.\n=====================================\n"
+)

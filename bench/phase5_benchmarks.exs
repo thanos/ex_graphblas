@@ -39,8 +39,18 @@ ncols_a = 80
 nrows_b = 50
 ncols_b = 40
 
-a_entries = for r <- 0..(nrows_a - 1), c <- 0..(ncols_a - 1), :rand.uniform() < 0.05, do: {r, c, :rand.uniform(50)}
-b_entries = for r <- 0..(nrows_b - 1), c <- 0..(ncols_b - 1), :rand.uniform() < 0.05, do: {r, c, :rand.uniform(50)}
+a_entries =
+  for r <- 0..(nrows_a - 1),
+      c <- 0..(ncols_a - 1),
+      :rand.uniform() < 0.05,
+      do: {r, c, :rand.uniform(50)}
+
+b_entries =
+  for r <- 0..(nrows_b - 1),
+      c <- 0..(ncols_b - 1),
+      :rand.uniform() < 0.05,
+      do: {r, c, :rand.uniform(50)}
+
 a_entries = if a_entries == [], do: [{0, 1, 1}], else: a_entries
 b_entries = if b_entries == [], do: [{1, 0, 1}], else: b_entries
 
@@ -113,7 +123,9 @@ Benchee.run(
 # 2. Descriptor inp0_transpose on mxm
 # =============================================================================
 
-IO.puts("\n=== Descriptor inp0_transpose on mxm (#{nrows_a}x#{ncols_a} * #{nrows_b}x#{ncols_b}) ===\n")
+IO.puts(
+  "\n=== Descriptor inp0_transpose on mxm (#{nrows_a}x#{ncols_a} * #{nrows_b}x#{ncols_b}) ===\n"
+)
 
 desc = Descriptor.new(inp0_transpose: :transpose)
 

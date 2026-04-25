@@ -2,6 +2,7 @@ defmodule GraphBLAS.Application do
   @moduledoc false
 
   use Application
+  require Logger
 
   @native_mod GraphBLAS.Native.SuiteSparse
 
@@ -12,7 +13,7 @@ defmodule GraphBLAS.Application do
         try do
           mod.grb_init()
         rescue
-          _ -> :ok
+          e -> Logger.debug("SuiteSparse grb_init failed: #{inspect(e)}")
         end
 
       {:error, _} ->
@@ -31,7 +32,7 @@ defmodule GraphBLAS.Application do
         try do
           mod.grb_finalize()
         rescue
-          _ -> :ok
+          e -> Logger.debug("SuiteSparse grb_finalize failed: #{inspect(e)}")
         end
 
       {:error, _} ->

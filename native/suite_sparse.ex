@@ -16,6 +16,17 @@ defmodule GraphBLAS.Native.SuiteSparse do
   from source. Set EX_GRAPHBLAS_BUILD=1 to force local compilation
   (requires Zig and SuiteSparse:GraphBLAS installed).
 
+  ## Include path
+
+  The default include path is `/opt/homebrew/include/suitesparse` (macOS
+  Apple Silicon). Override via the `SUITESPARSE_INCLUDE_PATH` environment
+  variable or the `:suitesparse_include_path` application config. Common
+  values:
+
+  - macOS Apple Silicon: `/opt/homebrew/include/suitesparse`
+  - macOS Intel: `/usr/local/include/suitesparse`
+  - Linux (Debian/Ubuntu): `/usr/include/suitesparse`
+
   ## Pointer lifecycle
 
   C pointers (GrB_Matrix, GrB_Vector) are stored as usize integers
@@ -41,6 +52,14 @@ defmodule GraphBLAS.Native.SuiteSparse do
     base_url: "https://github.com/thanos/ex_graphblas/releases/download/v#{version}",
     version: version,
     force_build: System.get_env("EX_GRAPHBLAS_BUILD") in ["1", "true"],
+    targets: ~w(
+      aarch64-linux-gnu
+      aarch64-linux-musl
+      aarch64-macos-none
+      x86_64-linux-gnu
+      x86_64-linux-musl
+      x86_64-macos-none
+    ),
     zig_code_path: "../priv/native/suite_sparse/graphblas.zig",
     c: [
       link_lib: {:system, "graphblas"},

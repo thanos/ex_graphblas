@@ -245,6 +245,10 @@ defmodule GraphBLAS.Relation do
   - `:lor_land` -- reachability closure (who can eventually reach whom?)
   - `:plus_min` -- shortest path closure
   - `:plus_times` -- all-paths counting closure
+
+  Options:
+  - `:max_iter` -- maximum iterations before returning (default: 100)
+  - `:backend` -- override the default backend
   """
   @spec closure(t(), atom(), atom() | GraphBLAS.Semiring.t(), keyword()) ::
           {:ok, Matrix.t()} | {:error, Error.t()}
@@ -253,8 +257,10 @@ defmodule GraphBLAS.Relation do
       {:ok, matrix} ->
         backend = Config.resolve_backend(opts)
 
+        max_iter = Keyword.get(opts, :max_iter, 100)
+
         with {:ok, sr} <- GraphBLAS.Semiring.resolve(semiring) do
-          closure_loop(matrix, matrix, sr, backend, 0)
+          closure_loop(matrix, matrix, sr, backend, 0, max_iter)
         end
 
       :error ->
@@ -262,9 +268,10 @@ defmodule GraphBLAS.Relation do
     end
   end
 
-  defp closure_loop(_a, p, _semiring, _backend, iter) when iter >= 100, do: {:ok, p}
+  defp closure_loop(_a, p, _semiring, _backend, iter, max_iter) when iter >= max_iter,
+    do: {:ok, p}
 
-  defp closure_loop(a, p, semiring, backend, iter) do
+  defp closure_loop(a, p, semiring, backend, iter, max_iter) do
     add_monoid = semiring.add
 
     with {:ok, new_paths} <- Matrix.mxm(p, a, semiring.name, backend: backend),
@@ -278,7 +285,7 @@ defmodule GraphBLAS.Relation do
         {:ok, p_new}
       else
         maybe_free_intermediate(p, backend)
-        closure_loop(a, p_new, semiring, backend, iter + 1)
+        closure_loop(a, p_new, semiring, backend, iter + 1, max_iter)
       end
     end
   end

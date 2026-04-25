@@ -226,16 +226,16 @@
   // Type / semiring / monoid resolution
   // =============================================================================
 
-  fn type_code_to_grb_type(code: u8) GrB_Type {
+  fn type_code_to_grb_type(code: u8) GraphBLASError!GrB_Type {
       return switch (code) {
           1 => GrB_BOOL,
           8 => GrB_INT64,
           11 => GrB_FP64,
-          else => GrB_INT64,
+          else => error.invalid_value,
       };
   }
 
-  fn semiring_from_code(code: u8) GrB_Semiring {
+  fn semiring_from_code(code: u8) GraphBLASError!GrB_Semiring {
       return switch (code) {
           1 => GrB_PLUS_TIMES_SEMIRING_INT64,
           2 => GrB_PLUS_TIMES_SEMIRING_FP64,
@@ -247,11 +247,11 @@
           8 => GxB_MAX_MIN_FP64,
           9 => GxB_LOR_LAND_BOOL,
           10 => GxB_LAND_LOR_BOOL,
-          else => GrB_PLUS_TIMES_SEMIRING_INT64,
+          else => error.invalid_value,
       };
   }
 
-  fn monoid_from_code(code: u8) GrB_Monoid {
+  fn monoid_from_code(code: u8) GraphBLASError!GrB_Monoid {
       return switch (code) {
           1 => GrB_PLUS_MONOID_INT64,
           2 => GrB_PLUS_MONOID_FP64,
@@ -264,7 +264,7 @@
           9 => GrB_LAND_MONOID_BOOL,
           10 => GrB_LOR_MONOID_BOOL,
           11 => GrB_LXOR_MONOID_BOOL,
-          else => GrB_PLUS_MONOID_INT64,
+          else => error.invalid_value,
       };
   }
 
@@ -295,11 +295,11 @@
       // Disable SuiteSparse JIT compiler — pre-compiled kernels suffice
       // and JIT fails on some semirings (plus_min, etc.) returning
       // GxB_JIT_ERROR (-7001) which causes dirty_cpu NIFs to hang.
-      _ = GxB_Global_Option_set_INT32(GxB_JIT_C_CONTROL, GxB_JIT_OFF);
+      try translate_info(GxB_Global_Option_set_INT32(GxB_JIT_C_CONTROL, GxB_JIT_OFF));
   }
 
-  pub fn grb_finalize() void {
-      _ = GrB_finalize();
+  pub fn grb_finalize() !void {
+      try translate_info(GrB_finalize());
   }
 
   // =============================================================================
@@ -308,7 +308,7 @@
 
   pub fn matrix_new(nrows: u64, ncols: u64, type_code: u8) !usize {
       var matrix: GrB_Matrix = null;
-      const grb_type = type_code_to_grb_type(type_code);
+      const grb_type = try type_code_to_grb_type(type_code);
       const info = GrB_Matrix_new(&matrix, grb_type, nrows, ncols);
       try translate_info(info);
       return mat_to_ptr(matrix);
@@ -353,18 +353,21 @@
   // =============================================================================
 
   pub fn matrix_build_int64(ptr: usize, rows: []u64, cols: []u64, vals: []i64, nvals: u64) !void {
+      if (nvals > rows.len or nvals > cols.len or nvals > vals.len) return error.invalid_index;
       const matrix = mat_from_ptr(ptr);
       const info = GrB_Matrix_build_INT64(matrix, rows.ptr, cols.ptr, vals.ptr, nvals, GrB_PLUS_INT64);
       try translate_info(info);
   }
 
   pub fn matrix_build_fp64(ptr: usize, rows: []u64, cols: []u64, vals: []f64, nvals: u64) !void {
+      if (nvals > rows.len or nvals > cols.len or nvals > vals.len) return error.invalid_index;
       const matrix = mat_from_ptr(ptr);
       const info = GrB_Matrix_build_FP64(matrix, rows.ptr, cols.ptr, vals.ptr, nvals, GrB_PLUS_FP64);
       try translate_info(info);
   }
 
   pub fn matrix_build_bool(ptr: usize, rows: []u64, cols: []u64, vals: []bool, nvals: u64) !void {
+      if (nvals > rows.len or nvals > cols.len or nvals > vals.len) return error.invalid_index;
       const matrix = mat_from_ptr(ptr);
       const info = GrB_Matrix_build_BOOL(matrix, rows.ptr, cols.ptr, vals.ptr, nvals, GxB_LOR_BOOL);
       try translate_info(info);
@@ -432,15 +435,15 @@
   pub fn matrix_mxm(a_ptr: usize, b_ptr: usize, semiring_code: u8, mask_ptr: usize, desc_ptr: usize) !usize {
       const a = mat_from_ptr(a_ptr);
       const b = mat_from_ptr(b_ptr);
-      const semiring = semiring_from_code(semiring_code);
+      const semiring = try semiring_from_code(semiring_code);
       const mask = mask_mat_from_ptr(mask_ptr);
       const desc = desc_from_ptr(desc_ptr);
       var nrows_a: u64 = undefined;
       var ncols_b: u64 = undefined;
-      _ = GrB_Matrix_nrows(&nrows_a, a);
-      _ = GrB_Matrix_ncols(&ncols_b, b);
+      try translate_info(GrB_Matrix_nrows(&nrows_a, a));
+      try translate_info(GrB_Matrix_ncols(&ncols_b, b));
       var a_type: GrB_Type = null;
-      _ = GxB_Matrix_type(&a_type, a);
+      try translate_info(GxB_Matrix_type(&a_type, a));
       var result: GrB_Matrix = null;
       const info_new = GrB_Matrix_new(&result, a_type, nrows_a, ncols_b);
       try translate_info(info_new);
@@ -455,13 +458,13 @@
   pub fn matrix_mxv(matrix_ptr: usize, vector_ptr: usize, semiring_code: u8, mask_ptr: usize, desc_ptr: usize) !usize {
       const matrix = mat_from_ptr(matrix_ptr);
       const vector = vec_from_ptr(vector_ptr);
-      const semiring = semiring_from_code(semiring_code);
+      const semiring = try semiring_from_code(semiring_code);
       const mask = mask_vec_from_ptr(mask_ptr);
       const desc = desc_from_ptr(desc_ptr);
       var nrows: u64 = undefined;
-      _ = GrB_Matrix_nrows(&nrows, matrix);
+      try translate_info(GrB_Matrix_nrows(&nrows, matrix));
       var mat_type: GrB_Type = null;
-      _ = GxB_Matrix_type(&mat_type, matrix);
+      try translate_info(GxB_Matrix_type(&mat_type, matrix));
       var result: GrB_Vector = null;
       const info_new = GrB_Vector_new(&result, mat_type, nrows);
       try translate_info(info_new);
@@ -479,10 +482,10 @@
       const desc = desc_from_ptr(desc_ptr);
       var nrows: u64 = undefined;
       var ncols: u64 = undefined;
-      _ = GrB_Matrix_nrows(&nrows, matrix);
-      _ = GrB_Matrix_ncols(&ncols, matrix);
+      try translate_info(GrB_Matrix_nrows(&nrows, matrix));
+      try translate_info(GrB_Matrix_ncols(&ncols, matrix));
       var mat_type: GrB_Type = null;
-      _ = GxB_Matrix_type(&mat_type, matrix);
+      try translate_info(GxB_Matrix_type(&mat_type, matrix));
       var result: GrB_Matrix = null;
       const info_new = GrB_Matrix_new(&result, mat_type, ncols, nrows);
       try translate_info(info_new);
@@ -497,15 +500,15 @@
   pub fn matrix_ewise_add(a_ptr: usize, b_ptr: usize, monoid_code: u8, mask_ptr: usize, desc_ptr: usize) !usize {
       const a = mat_from_ptr(a_ptr);
       const b = mat_from_ptr(b_ptr);
-      const monoid = monoid_from_code(monoid_code);
+      const monoid = try monoid_from_code(monoid_code);
       const mask = mask_mat_from_ptr(mask_ptr);
       const desc = desc_from_ptr(desc_ptr);
       var nrows: u64 = undefined;
       var ncols: u64 = undefined;
-      _ = GrB_Matrix_nrows(&nrows, a);
-      _ = GrB_Matrix_ncols(&ncols, a);
+      try translate_info(GrB_Matrix_nrows(&nrows, a));
+      try translate_info(GrB_Matrix_ncols(&ncols, a));
       var a_type: GrB_Type = null;
-      _ = GxB_Matrix_type(&a_type, a);
+      try translate_info(GxB_Matrix_type(&a_type, a));
       var result: GrB_Matrix = null;
       const info_new = GrB_Matrix_new(&result, a_type, nrows, ncols);
       try translate_info(info_new);
@@ -520,15 +523,15 @@
   pub fn matrix_ewise_mult(a_ptr: usize, b_ptr: usize, monoid_code: u8, mask_ptr: usize, desc_ptr: usize) !usize {
       const a = mat_from_ptr(a_ptr);
       const b = mat_from_ptr(b_ptr);
-      const monoid = monoid_from_code(monoid_code);
+      const monoid = try monoid_from_code(monoid_code);
       const mask = mask_mat_from_ptr(mask_ptr);
       const desc = desc_from_ptr(desc_ptr);
       var nrows: u64 = undefined;
       var ncols: u64 = undefined;
-      _ = GrB_Matrix_nrows(&nrows, a);
-      _ = GrB_Matrix_ncols(&ncols, a);
+      try translate_info(GrB_Matrix_nrows(&nrows, a));
+      try translate_info(GrB_Matrix_ncols(&ncols, a));
       var a_type: GrB_Type = null;
-      _ = GxB_Matrix_type(&a_type, a);
+      try translate_info(GxB_Matrix_type(&a_type, a));
       var result: GrB_Matrix = null;
       const info_new = GrB_Matrix_new(&result, a_type, nrows, ncols);
       try translate_info(info_new);
@@ -542,13 +545,13 @@
 
   pub fn matrix_reduce_to_vector(matrix_ptr: usize, monoid_code: u8, mask_ptr: usize, desc_ptr: usize) !usize {
       const matrix = mat_from_ptr(matrix_ptr);
-      const monoid = monoid_from_code(monoid_code);
+      const monoid = try monoid_from_code(monoid_code);
       const mask = mask_vec_from_ptr(mask_ptr);
       const desc = desc_from_ptr(desc_ptr);
       var nrows: u64 = undefined;
-      _ = GrB_Matrix_nrows(&nrows, matrix);
+      try translate_info(GrB_Matrix_nrows(&nrows, matrix));
       var mat_type: GrB_Type = null;
-      _ = GxB_Matrix_type(&mat_type, matrix);
+      try translate_info(GxB_Matrix_type(&mat_type, matrix));
       var result: GrB_Vector = null;
       const info_new = GrB_Vector_new(&result, mat_type, nrows);
       try translate_info(info_new);
@@ -566,7 +569,7 @@
 
   pub fn vector_new(size: u64, type_code: u8) !usize {
       var vector: GrB_Vector = null;
-      const grb_type = type_code_to_grb_type(type_code);
+      const grb_type = try type_code_to_grb_type(type_code);
       const info = GrB_Vector_new(&vector, grb_type, size);
       try translate_info(info);
       return vec_to_ptr(vector);
@@ -603,18 +606,21 @@
   // =============================================================================
 
   pub fn vector_build_int64(ptr: usize, indices: []u64, vals: []i64, nvals: u64) !void {
+      if (nvals > indices.len or nvals > vals.len) return error.invalid_index;
       const vector = vec_from_ptr(ptr);
       const info = GrB_Vector_build_INT64(vector, indices.ptr, vals.ptr, nvals, GrB_PLUS_INT64);
       try translate_info(info);
   }
 
   pub fn vector_build_fp64(ptr: usize, indices: []u64, vals: []f64, nvals: u64) !void {
+      if (nvals > indices.len or nvals > vals.len) return error.invalid_index;
       const vector = vec_from_ptr(ptr);
       const info = GrB_Vector_build_FP64(vector, indices.ptr, vals.ptr, nvals, GrB_PLUS_FP64);
       try translate_info(info);
   }
 
   pub fn vector_build_bool(ptr: usize, indices: []u64, vals: []bool, nvals: u64) !void {
+      if (nvals > indices.len or nvals > vals.len) return error.invalid_index;
       const vector = vec_from_ptr(ptr);
       const info = GrB_Vector_build_BOOL(vector, indices.ptr, vals.ptr, nvals, GxB_LOR_BOOL);
       try translate_info(info);
@@ -664,13 +670,13 @@
   pub fn vector_vxm(vector_ptr: usize, matrix_ptr: usize, semiring_code: u8, mask_ptr: usize, desc_ptr: usize) !usize {
       const vector = vec_from_ptr(vector_ptr);
       const matrix = mat_from_ptr(matrix_ptr);
-      const semiring = semiring_from_code(semiring_code);
+      const semiring = try semiring_from_code(semiring_code);
       const mask = mask_vec_from_ptr(mask_ptr);
       const desc = desc_from_ptr(desc_ptr);
       var ncols: u64 = undefined;
-      _ = GrB_Matrix_ncols(&ncols, matrix);
+      try translate_info(GrB_Matrix_ncols(&ncols, matrix));
       var vec_type: GrB_Type = null;
-      _ = GxB_Vector_type(&vec_type, vector);
+      try translate_info(GxB_Vector_type(&vec_type, vector));
       var result: GrB_Vector = null;
       const info_new = GrB_Vector_new(&result, vec_type, ncols);
       try translate_info(info_new);
@@ -685,13 +691,13 @@
   pub fn vector_ewise_add(a_ptr: usize, b_ptr: usize, monoid_code: u8, mask_ptr: usize, desc_ptr: usize) !usize {
       const a = vec_from_ptr(a_ptr);
       const b = vec_from_ptr(b_ptr);
-      const monoid = monoid_from_code(monoid_code);
+      const monoid = try monoid_from_code(monoid_code);
       const mask = mask_vec_from_ptr(mask_ptr);
       const desc = desc_from_ptr(desc_ptr);
       var size: u64 = undefined;
-      _ = GrB_Vector_size(&size, a);
+      try translate_info(GrB_Vector_size(&size, a));
       var a_type: GrB_Type = null;
-      _ = GxB_Vector_type(&a_type, a);
+      try translate_info(GxB_Vector_type(&a_type, a));
       var result: GrB_Vector = null;
       const info_new = GrB_Vector_new(&result, a_type, size);
       try translate_info(info_new);
@@ -706,13 +712,13 @@
   pub fn vector_ewise_mult(a_ptr: usize, b_ptr: usize, monoid_code: u8, mask_ptr: usize, desc_ptr: usize) !usize {
       const a = vec_from_ptr(a_ptr);
       const b = vec_from_ptr(b_ptr);
-      const monoid = monoid_from_code(monoid_code);
+      const monoid = try monoid_from_code(monoid_code);
       const mask = mask_vec_from_ptr(mask_ptr);
       const desc = desc_from_ptr(desc_ptr);
       var size: u64 = undefined;
-      _ = GrB_Vector_size(&size, a);
+      try translate_info(GrB_Vector_size(&size, a));
       var a_type: GrB_Type = null;
-      _ = GxB_Vector_type(&a_type, a);
+      try translate_info(GxB_Vector_type(&a_type, a));
       var result: GrB_Vector = null;
       const info_new = GrB_Vector_new(&result, a_type, size);
       try translate_info(info_new);
@@ -726,7 +732,7 @@
 
   pub fn vector_reduce_to_scalar_int64(ptr: usize, monoid_code: u8) !i64 {
       const vector = vec_from_ptr(ptr);
-      const monoid = monoid_from_code(monoid_code);
+      const monoid = try monoid_from_code(monoid_code);
       var result: i64 = 0;
       const info = GrB_Vector_reduce_INT64(&result, null, monoid, vector, null);
       try translate_info(info);
@@ -735,7 +741,7 @@
 
   pub fn vector_reduce_to_scalar_fp64(ptr: usize, monoid_code: u8) !f64 {
       const vector = vec_from_ptr(ptr);
-      const monoid = monoid_from_code(monoid_code);
+      const monoid = try monoid_from_code(monoid_code);
       var result: f64 = 0.0;
       const info = GrB_Vector_reduce_FP64(&result, null, monoid, vector, null);
       try translate_info(info);
@@ -744,7 +750,7 @@
 
   pub fn vector_reduce_to_scalar_bool(ptr: usize, monoid_code: u8) !bool {
       const vector = vec_from_ptr(ptr);
-      const monoid = monoid_from_code(monoid_code);
+      const monoid = try monoid_from_code(monoid_code);
       var result: bool = false;
       const info = GrB_Vector_reduce_BOOL(&result, null, monoid, vector, null);
       try translate_info(info);
@@ -817,23 +823,20 @@
       if (desc == null) return error.null_pointer;
 
       if (output_replace) {
-          _ = GrB_Descriptor_set_INT32(desc, GrB_OUTP, GrB_REPLACE);
+          try translate_info(GrB_Descriptor_set_INT32(desc, GrB_OUTP, GrB_REPLACE));
       }
       if (inp0_tran) {
-          _ = GrB_Descriptor_set_INT32(desc, GrB_INP0, GrB_TRAN);
+          try translate_info(GrB_Descriptor_set_INT32(desc, GrB_INP0, GrB_TRAN));
       }
       if (inp1_tran) {
-          _ = GrB_Descriptor_set_INT32(desc, GrB_INP1, GrB_TRAN);
+          try translate_info(GrB_Descriptor_set_INT32(desc, GrB_INP1, GrB_TRAN));
       }
-      // For mask field in custom descriptors, try setting each value
-      // If GrB_Descriptor_set_INT32 fails for some values, we proceed
-      // anyway since the default behavior may be acceptable
       if (mask_comp and mask_structural) {
-          _ = GrB_Descriptor_set_INT32(desc, GrB_MASK, GrB_COMP_STRUCTURE);
+          try translate_info(GrB_Descriptor_set_INT32(desc, GrB_MASK, GrB_COMP_STRUCTURE));
       } else if (mask_comp) {
-          _ = GrB_Descriptor_set_INT32(desc, GrB_MASK, GrB_COMP);
+          try translate_info(GrB_Descriptor_set_INT32(desc, GrB_MASK, GrB_COMP));
       } else if (mask_structural) {
-          _ = GrB_Descriptor_set_INT32(desc, GrB_MASK, GrB_STRUCTURE);
+          try translate_info(GrB_Descriptor_set_INT32(desc, GrB_MASK, GrB_STRUCTURE));
       }
 
       return @intFromPtr(desc);

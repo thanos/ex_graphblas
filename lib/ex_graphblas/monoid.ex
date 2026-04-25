@@ -41,10 +41,15 @@ defmodule GraphBLAS.Monoid do
   @enforce_keys [:name, :operator, :identity, :type]
   defstruct [:name, :operator, :identity, :type]
 
+  @int64_max 9_223_372_036_854_775_807
+  @int64_min -9_223_372_036_854_775_808
+
   @doc """
   Creates a custom monoid struct.
 
   Prefer using built-in monoids by atom name when possible.
+
+  Raises `KeyError` if `:name`, `:operator`, `:identity`, or `:type` is missing from `opts`.
   """
   @spec new(keyword()) :: t()
   def new(opts) do
@@ -95,7 +100,7 @@ defmodule GraphBLAS.Monoid do
       new(
         name: :min,
         operator: :min,
-        identity: max_int(GraphBLAS.Scalar.new(:int64, 0), :int64),
+        identity: @int64_max,
         type: :int64
       )
 
@@ -107,7 +112,7 @@ defmodule GraphBLAS.Monoid do
       new(
         name: :max,
         operator: :max,
-        identity: min_int(GraphBLAS.Scalar.new(:int64, 0), :int64),
+        identity: @int64_min,
         type: :int64
       )
 
@@ -118,9 +123,6 @@ defmodule GraphBLAS.Monoid do
   def builtin(:lor), do: new(name: :lor, operator: :lor, identity: false, type: :bool)
   def builtin(:lxor), do: new(name: :lxor, operator: :lxor, identity: false, type: :bool)
   def builtin(_), do: nil
-
-  defp max_int(_, :int64), do: 9_223_372_036_854_775_807
-  defp min_int(_, :int64), do: -9_223_372_036_854_775_808
 
   @doc """
   Returns the list of all built-in monoid name atoms.
