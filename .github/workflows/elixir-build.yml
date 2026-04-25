@@ -46,9 +46,9 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v6-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v7-${{ hashFiles('**/mix.lock') }}-${{ hashFiles('lib/**/*', 'native/**/*', 'priv/native/**/*', 'test/support/**/*') }}
           restore-keys: |
-            ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v6-
+            ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v7-
 
       - name: Install dependencies
         run: mix deps.get
