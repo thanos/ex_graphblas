@@ -6,7 +6,7 @@ An Elixir library for sparse linear algebra and graph computation, inspired by t
 [![Hex.pm](https://img.shields.io/hexpm/dt/ex_graphblas.svg)](https://hex.pm/packages/ex_graphblas)
 [![Hex.pm](https://img.shields.io/hexpm/l/ex_graphblas.svg)](https://hex.pm/packages/ex_graphblas)
 [![HexDocs.pm](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/ex_graphblas)
-
+[![Precompiled NIFs](https://github.com/thanos/ex_graphblas/actions/workflows/precompiled-nifs.yml/badge.svg)](https://github.com/thanos/ex_graphblas/actions/workflows/precompiled-nifs.yml)
 
 GraphBLAS provides idiomatic Elixir data structures at the boundary while delegating computation to swappable backends. The same code runs on a pure Elixir reference backend for development and testing, and on SuiteSparse:GraphBLAS via Zigler NIFs for native performance in production.
 
