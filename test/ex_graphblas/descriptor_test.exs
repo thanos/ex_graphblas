@@ -2,7 +2,7 @@ defmodule GraphBLAS.DescriptorTest do
   use ExUnit.Case, async: true
 
   alias GraphBLAS.Backend.Elixir, as: RefBackend
-  alias GraphBLAS.{Descriptor, Matrix}
+  alias GraphBLAS.Descriptor
 
   describe "new/1" do
     test "creates descriptor with defaults" do

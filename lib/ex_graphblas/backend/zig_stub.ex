@@ -76,7 +76,7 @@ defmodule GraphBLAS.Backend.ZigStub do
   #############################################################################
 
   @impl GraphBLAS.Backend
-  def matrix_new(nrows, ncols, type, _opts) do
+  def matrix_new(nrows, ncols, type, _opts) when nrows >= 0 and ncols >= 0 do
     {:ok,
      %Matrix{
        shape: {nrows, ncols},
@@ -85,6 +85,12 @@ defmodule GraphBLAS.Backend.ZigStub do
        backend: __MODULE__
      }}
   end
+
+  def matrix_new(nrows, ncols, _type, _opts),
+    do:
+      Error.error(
+        {:invalid_argument, "dimensions must be non-negative, got {#{nrows}, #{ncols}}"}
+      )
 
   @impl GraphBLAS.Backend
   def matrix_nvals(%Matrix{data: %{entries: entries}}) do
@@ -131,7 +137,7 @@ defmodule GraphBLAS.Backend.ZigStub do
   #############################################################################
 
   @impl GraphBLAS.Backend
-  def vector_new(size, type, _opts) do
+  def vector_new(size, type, _opts) when size >= 0 do
     {:ok,
      %Vector{
        size: size,
@@ -140,6 +146,9 @@ defmodule GraphBLAS.Backend.ZigStub do
        backend: __MODULE__
      }}
   end
+
+  def vector_new(size, _type, _opts),
+    do: Error.error({:invalid_argument, "vector size must be non-negative, got #{size}"})
 
   @impl GraphBLAS.Backend
   def vector_nvals(%Vector{data: %{entries: entries}}) do

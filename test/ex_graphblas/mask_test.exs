@@ -2,7 +2,7 @@ defmodule GraphBLAS.MaskTest do
   use ExUnit.Case, async: true
 
   alias GraphBLAS.Backend.Elixir, as: RefBackend
-  alias GraphBLAS.{Mask, Matrix, Vector}
+  alias GraphBLAS.{Mask, Matrix}
 
   describe "new/2" do
     test "creates a structural mask from a matrix" do

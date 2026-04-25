@@ -153,7 +153,7 @@ defmodule GraphBLAS.Backend.ParityTest do
 | Error paths | ~5 |
 | Semantic correctness | ~15 |
 
-### Total: ~175-200 new tests
+### Total: 350+ tests across all suites
 
 ## Debugging parity failures
 

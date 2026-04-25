@@ -31,9 +31,9 @@ This walkthrough explains exactly what happens at that boundary, why it is safe,
 {:ok, coo} = GraphBLAS.Matrix.to_coo(c)
 
 # IMPORTANT: Free SuiteSparse objects when done
-SuiteSparse.matrix_free(a)
-SuiteSparse.matrix_free(b)
-SuiteSparse.matrix_free(c)
+GraphBLAS.Backend.SuiteSparse.matrix_free(a)
+GraphBLAS.Backend.SuiteSparse.matrix_free(b)
+GraphBLAS.Backend.SuiteSparse.matrix_free(c)
 ```
 
 The API is identical to the Elixir backend. The `backend:` option selects which implementation runs. The result data structure has the same shape — only the `:data` field contents differ.
@@ -115,12 +115,12 @@ No data was copied. The matrix lives in SuiteSparse's memory. Elixir holds only 
 ### Creating a matrix
 
 ```elixir
-{:ok, m} = SuiteSparse.matrix_from_coo(3, 3, entries, :int64, [])
+{:ok, m} = GraphBLAS.Backend.SuiteSparse.matrix_from_coo(3, 3, entries, :int64, [])
 ```
 
 What happens:
 
-1. `Backend.SuiteSparse.matrix_from_coo/5` validates dimensions and type
+1. The SuiteSparse backend's `matrix_from_coo` validates dimensions and type
 2. Calls `Native.matrix_new(3, 3, 8)` — Zig creates `GrB_Matrix`, returns pointer as `usize`
 3. Calls `Native.matrix_build_int64(ptr, rows, cols, vals, length)` — Zig calls `GrB_Matrix_build_INT64`
 4. Returns `{:ok, %Matrix{shape: {3, 3}, type: :int64, data: %{ptr: 46128889856}}}`
@@ -128,8 +128,8 @@ What happens:
 ### Using a matrix
 
 ```elixir
-{:ok, nvals} = SuiteSparse.matrix_nvals(m)     # Fast, not dirty_cpu
-{:ok, coo} = SuiteSparse.matrix_to_coo(m)       # Requires data extraction, dirty_cpu
+{:ok, nvals} = GraphBLAS.Backend.SuiteSparse.matrix_nvals(m)     # Fast, not dirty_cpu
+{:ok, coo} = GraphBLAS.Backend.SuiteSparse.matrix_to_coo(m)       # Requires data extraction, dirty_cpu
 ```
 
 `nvals/1` calls `GrB_Matrix_nvals` — O(1), no dirty scheduler needed.
@@ -139,7 +139,7 @@ What happens:
 ### Destroying a matrix
 
 ```elixir
-SuiteSparse.matrix_free(m)
+GraphBLAS.Backend.SuiteSparse.matrix_free(m)
 ```
 
 Explicit. Required. The BEAM garbage collector does NOT free the underlying C memory because the pointer is stored as an integer, not as a managed resource.

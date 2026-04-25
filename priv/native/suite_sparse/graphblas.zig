@@ -353,18 +353,21 @@
   // =============================================================================
 
   pub fn matrix_build_int64(ptr: usize, rows: []u64, cols: []u64, vals: []i64, nvals: u64) !void {
+      if (nvals > rows.len or nvals > cols.len or nvals > vals.len) return error.invalid_index;
       const matrix = mat_from_ptr(ptr);
       const info = GrB_Matrix_build_INT64(matrix, rows.ptr, cols.ptr, vals.ptr, nvals, GrB_PLUS_INT64);
       try translate_info(info);
   }
 
   pub fn matrix_build_fp64(ptr: usize, rows: []u64, cols: []u64, vals: []f64, nvals: u64) !void {
+      if (nvals > rows.len or nvals > cols.len or nvals > vals.len) return error.invalid_index;
       const matrix = mat_from_ptr(ptr);
       const info = GrB_Matrix_build_FP64(matrix, rows.ptr, cols.ptr, vals.ptr, nvals, GrB_PLUS_FP64);
       try translate_info(info);
   }
 
   pub fn matrix_build_bool(ptr: usize, rows: []u64, cols: []u64, vals: []bool, nvals: u64) !void {
+      if (nvals > rows.len or nvals > cols.len or nvals > vals.len) return error.invalid_index;
       const matrix = mat_from_ptr(ptr);
       const info = GrB_Matrix_build_BOOL(matrix, rows.ptr, cols.ptr, vals.ptr, nvals, GxB_LOR_BOOL);
       try translate_info(info);
@@ -603,18 +606,21 @@
   // =============================================================================
 
   pub fn vector_build_int64(ptr: usize, indices: []u64, vals: []i64, nvals: u64) !void {
+      if (nvals > indices.len or nvals > vals.len) return error.invalid_index;
       const vector = vec_from_ptr(ptr);
       const info = GrB_Vector_build_INT64(vector, indices.ptr, vals.ptr, nvals, GrB_PLUS_INT64);
       try translate_info(info);
   }
 
   pub fn vector_build_fp64(ptr: usize, indices: []u64, vals: []f64, nvals: u64) !void {
+      if (nvals > indices.len or nvals > vals.len) return error.invalid_index;
       const vector = vec_from_ptr(ptr);
       const info = GrB_Vector_build_FP64(vector, indices.ptr, vals.ptr, nvals, GrB_PLUS_FP64);
       try translate_info(info);
   }
 
   pub fn vector_build_bool(ptr: usize, indices: []u64, vals: []bool, nvals: u64) !void {
+      if (nvals > indices.len or nvals > vals.len) return error.invalid_index;
       const vector = vec_from_ptr(ptr);
       const info = GrB_Vector_build_BOOL(vector, indices.ptr, vals.ptr, nvals, GxB_LOR_BOOL);
       try translate_info(info);
