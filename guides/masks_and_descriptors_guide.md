@@ -102,14 +102,7 @@ Masks and descriptors compose naturally:
 
 ### Replace output descriptor
 
-The `output: :replace` descriptor clears the output before writing. In the current API (which always creates fresh results), it is a no-op. It becomes meaningful when in-place operations are added:
-
-```elixir
-# Future: in-place mxm that replaces the contents of c
-# {:ok, c} = Matrix.mxm_into(c, a, b, :plus_times, descriptor: Descriptor.replace_output())
-```
-
-For now, use `Descriptor.replace_output()` to prepare for in-place operations.
+The `output: :replace` descriptor clears the output before writing. In v0.2.0, all operations create fresh results, so `output: :replace` has no observable effect. It is accepted and passed through to SuiteSparse (which does use it internally), but does not change behavior when called from the Elixir API. It is included for forward-compatibility with future in-place operations.
 
 ## Container manipulation
 

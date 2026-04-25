@@ -16,6 +16,17 @@ defmodule GraphBLAS.Native.SuiteSparse do
   from source. Set EX_GRAPHBLAS_BUILD=1 to force local compilation
   (requires Zig and SuiteSparse:GraphBLAS installed).
 
+  ## Include path
+
+  The default include path is `/opt/homebrew/include/suitesparse` (macOS
+  Apple Silicon). Override via the `SUITESPARSE_INCLUDE_PATH` environment
+  variable or the `:suitesparse_include_path` application config. Common
+  values:
+
+  - macOS Apple Silicon: `/opt/homebrew/include/suitesparse`
+  - macOS Intel: `/usr/local/include/suitesparse`
+  - Linux (Debian/Ubuntu): `/usr/include/suitesparse`
+
   ## Pointer lifecycle
 
   C pointers (GrB_Matrix, GrB_Vector) are stored as usize integers

@@ -399,11 +399,21 @@ defmodule GraphBLAS.Algorithm do
   `max_iter` is reached. Returns `{:ok, final_value, info}` where
   info contains `%{iterations: n, converged: boolean}`.
 
+  ## Default convergence behavior
+
+  When no `:convergence_fn` is provided:
+
+  - **Matrices** -- exact comparison of sorted COO entries (ignores `:tol`)
+  - **Vectors with `tol > 0`** -- all entries differ by less than `:tol`
+  - **Vectors with `tol == 0`** -- exact comparison of sorted entries
+  - **Other values** -- never converges (always runs to `max_iter`)
+
   ## Options
 
   - `:max_iter` -- maximum iterations (default: 100)
-  - `:tol` -- convergence tolerance for fp64 (default: 1.0e-6)
-  - `:convergence_fn` -- custom convergence check `(old, new -> boolean)`
+  - `:tol` -- convergence tolerance for fp64 vectors (default: 1.0e-6)
+  - `:convergence_fn` -- custom convergence check `(old, new -> boolean)`, overrides the defaults above
+  - `:backend` -- override the default backend
   """
   @spec fixed_point(term(), (term() -> {:ok, term()} | {:error, Error.t()}), keyword()) ::
           {:ok, term(), map()} | {:error, Error.t()}
