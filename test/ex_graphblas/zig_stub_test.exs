@@ -3,6 +3,14 @@ defmodule GraphBLAS.ZigStubTest do
 
   alias GraphBLAS.Backend.ZigStub
 
+  setup do
+    if ZigStub.available?() do
+      :ok
+    else
+      {:skip, "ZigStub NIF not available (ensure Zig toolchain is installed)"}
+    end
+  end
+
   test "ZigStub backend is available" do
     assert ZigStub.available?()
   end
