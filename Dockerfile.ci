@@ -1,0 +1,71 @@
+# ============================================================================
+# Stage 1: System dependencies and Erlang/Elixir (force linux/amd64, OTP 28)
+# ============================================================================
+FROM --platform=linux/amd64 hexpm/elixir:1.18.4-erlang-28.0-debian-trixie-20251117-slim AS base
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    ELIXIR_ERL_OPTIONS="+fnu" \
+    LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8
+
+# Install system dependencies (cached by Docker)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    clang \
+    git \
+    pkg-config \
+    libomp-dev \
+    curl \
+    wget \
+    unzip && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install newer CMake (v3.20+) from GitHub releases (linux/x86_64)
+RUN mkdir -p /tmp/cmake && \
+    curl -fsSL https://github.com/Kitware/CMake/releases/download/v3.29.0/cmake-3.29.0-linux-x86_64.tar.gz | tar -C /tmp/cmake -xz && \
+    mv /tmp/cmake/cmake-3.29.0-linux-x86_64/bin/cmake /usr/local/bin/ && \
+    mv /tmp/cmake/cmake-3.29.0-linux-x86_64/share/cmake-3.29 /usr/local/share/ && \
+    rm -rf /tmp/cmake && \
+    cmake --version
+
+# Set up Mix
+RUN mix local.hex --force && \
+    mix local.rebar --force
+
+# ============================================================================
+# Stage 2: GraphBLAS (expensive, cached separately)
+# ============================================================================
+FROM base AS graphblas-builder
+
+WORKDIR /tmp/GraphBLAS
+
+# Clone GraphBLAS (cached by Docker unless URL changes)
+RUN git clone --depth 1 --branch v9.4.5 https://github.com/DrTimothyAldenDavis/GraphBLAS.git . 
+
+# Build GraphBLAS (cached unless source changes - which it won't with --depth 1 --branch)
+RUN cmake -S . -B build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DGRAPHBLAS_BUILD_PKGCONFIG=ON && \
+    cmake --build build -j$(nproc) && \
+    cmake --install build && \
+    ldconfig
+
+# ============================================================================
+# Stage 3: Final runtime image
+# ============================================================================
+FROM base AS runtime
+
+# Copy pre-built GraphBLAS from stage 2
+COPY --from=graphblas-builder /usr/local /usr/local
+
+# Refresh library cache
+RUN ldconfig
+
+# Set up workspace
+WORKDIR /workspace
+ENV MIX_ENV=test \
+    PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig"
+
+# Default command
+CMD ["/bin/bash"]

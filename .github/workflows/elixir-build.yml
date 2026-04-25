@@ -1,0 +1,67 @@
+name: Build
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  MIX_ENV: test
+
+jobs:
+  test:
+    name: Test -- Elixir ${{ matrix.elixir }} / OTP ${{ matrix.otp }}
+    runs-on: ubuntu-22.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # - elixir: "1.17.3"
+          #   otp: "26"
+          - elixir: "1.20.0-rc.3"
+            otp: "28.4.1"
+          # Latest stable versions
+          - elixir: "1.19.5"
+            otp: "28.4.1"
+            coverage: true
+          # Previous versions for compatibility
+          - elixir: "1.18.4"
+            otp: "27.3"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ matrix.elixir }}
+          otp-version: ${{ matrix.otp }}
+
+      - name: Cache Mix dependencies
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v1-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-test-${{ matrix.elixir }}-${{ matrix.otp }}-v1-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Install Zig
+        run: |
+          ZIG_VERSION="0.15.2"
+          curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz" -o zig.tar.xz
+          tar -xf zig.tar.xz
+          ZIG_DIR="${PWD}/zig-x86_64-linux-${ZIG_VERSION}"
+          echo "${ZIG_DIR}" >> "$GITHUB_PATH"
+          "${ZIG_DIR}/zig" version
+
+      - name: Compile (warnings as errors)
+        run: mix compile --warnings-as-errors
+
+      - name: Run tests
+        run: mix test

@@ -1,6 +1,14 @@
 # The directory Mix will write compiled artifacts to.
 /_build/
 
+/docs/phases
+/prompts/
+/plans/
+
+.tool-versions
+
+/priv/plts/
+
 # If you run "mix test --cover", coverage assets end up here.
 /cover/
 
@@ -21,3 +29,6 @@ ex_graphblas-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Zigler staging files (generated during compilation)
+.Elixir.*.zig

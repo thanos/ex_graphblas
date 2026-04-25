@@ -1,0 +1,257 @@
+name: Precompiled NIFs
+
+on:
+  push:
+    # Only run this workflow automatically when pushing a version tag
+    # like v0.2.0. Regular pushes to branches will not trigger it.
+    tags:
+      - "v*"
+  pull_request:
+    paths:
+      - ".github/workflows/precompiled-nifs.yml"
+      - "native/suite_sparse.ex"
+      - "priv/native/suite_sparse/"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  build_nifs:
+    name: NIF - ${{ matrix.target }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    env:
+      ELIXIR_VERSION: "1.19.5"
+      OTP_VERSION: "28.4.1"
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: aarch64-macos-none, os: macos-14 }
+          - { target: x86_64-macos-none, os: macos-14 }
+          - { target: aarch64-linux-gnu, os: ubuntu-22.04 }
+          - { target: x86_64-linux-gnu, os: ubuntu-22.04 }
+          - { target: x86_64-linux-musl, os: ubuntu-22.04 }
+          - { target: aarch64-linux-musl, os: ubuntu-22.04 }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
+
+      - name: Extract project version
+        shell: bash
+        run: |
+          echo "PROJECT_VERSION=$(sed -n 's/^  @version "\(.*\)"/\1/p' mix.exs | head -n1)" >> "$GITHUB_ENV"
+
+      - name: Install build dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            build-essential \
+            clang \
+            cmake \
+            libomp-dev \
+            git
+
+      - name: Clone SuiteSparse:GraphBLAS (Linux)
+        if: runner.os == 'Linux'
+        run: git clone --depth 1 --branch v9.4.5 https://github.com/DrTimothyAldenDavis/GraphBLAS.git
+
+      - name: Configure GraphBLAS with CMake (Linux)
+        if: runner.os == 'Linux'
+        working-directory: GraphBLAS
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DGRAPHBLAS_BUILD_PKGCONFIG=ON
+
+      - name: Cache GraphBLAS installation (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        id: graphblas-cache
+        with:
+          path: |
+            /usr/local/lib/libgraphblas.so*
+            /usr/local/include/suitesparse/GraphBLAS.h
+            /usr/local/lib/pkgconfig/GraphBLAS.pc
+          # Cache per OS/arch/target so each NIF build target only pays the
+          # GraphBLAS build cost once across runs.
+          key: graphblas-v9.4.5-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}
+
+      - name: Build and install GraphBLAS (Linux)
+        if: runner.os == 'Linux' && steps.graphblas-cache.outputs.cache-hit != 'true'
+        working-directory: GraphBLAS
+        run: |
+          cmake --build build -j"$(nproc)"
+          sudo cmake --install build
+          sudo ldconfig
+
+      - name: Verify GraphBLAS installation and set PKG_CONFIG_PATH (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          # Set PKG_CONFIG_PATH so pkg-config can see GraphBLAS
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig" >> "$GITHUB_ENV"
+
+          # Verify a GraphBLAS pkg-config file exists (casing may differ)
+          if ! sudo find /usr/local -type f \( -name 'GraphBLAS.pc' -o -name 'graphblas.pc' \) | grep -q '\.pc$'; then
+            echo "GraphBLAS pkg-config file not found under /usr/local"
+            sudo find /usr/local -maxdepth 4 -type f -name '*.pc' || true
+            exit 1
+          fi
+
+          # Verify pkg-config can resolve the module (try both common names)
+          pkg-config --print-errors --modversion GraphBLAS || pkg-config --print-errors --modversion graphblas
+
+      - name: Set PKG_CONFIG_PATH for later steps (Linux)
+        if: runner.os == 'Linux'
+        run: echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig" >> "$GITHUB_ENV"
+
+      - name: Install SuiteSparse (macOS)
+        if: runner.os == 'macOS'
+        run: brew install suite-sparse
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-nif-${{ matrix.target }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-nif-${{ matrix.target }}-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Download Zig (for Zigler)
+        run: mix zig.get
+
+      - name: Build NIF from source
+        env:
+          EX_GRAPHBLAS_BUILD: "1"
+          MIX_ENV: dev
+        run: mix compile --warnings-as-errors
+
+      - name: Package artifact
+        shell: bash
+        run: |
+          VERSION="${PROJECT_VERSION}"
+          BASENAME="Elixir.GraphBLAS.Native.SuiteSparse"
+          NIF_DIR="_build/dev/lib/ex_graphblas/priv/lib"
+          if [ ! -d "$NIF_DIR" ]; then
+            echo "::error::NIF directory not found: $NIF_DIR"
+            echo "Existing NIF candidates under _build:"
+            find _build -maxdepth 6 -type f -name "Elixir.GraphBLAS.Native.SuiteSparse*.so" || true
+            exit 1
+          fi
+          mkdir -p artifacts
+          tar czf "artifacts/${BASENAME}-v${VERSION}-${{ matrix.target }}.so.tar.gz" -C "$NIF_DIR" .
+          echo "Packaged: artifacts/${BASENAME}-v${VERSION}-${{ matrix.target }}.so.tar.gz"
+
+      - name: Artifact attestation
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: artifacts/*.tar.gz
+
+      - name: Verify artifact
+        shell: bash
+        run: |
+          if [ -z "$(ls artifacts/*.tar.gz 2>/dev/null)" ]; then
+            echo "::error::Build did not produce artifact"
+            exit 1
+          fi
+          ls -la artifacts/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Elixir.GraphBLAS.Native.SuiteSparse-v${{ env.PROJECT_VERSION }}-${{ matrix.target }}
+          path: artifacts/*.tar.gz
+
+  release:
+    name: Create release
+    needs: build_nifs
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Flatten tarballs
+        run: |
+          mkdir -p nifs
+          find release-artifacts -name '*.tar.gz' -exec cp {} nifs/ \;
+          ls -la nifs/
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: nifs/*.tar.gz
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish_hex:
+    name: Publish to Hex.pm
+    needs: release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    env:
+      EX_GRAPHBLAS_BUILD: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27"
+          elixir-version: "1.18.4"
+
+      - name: Install SuiteSparse
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgraphblas-dev pkg-config
+
+      - name: Restore Mix dependencies cache
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: mix-deps-publish-${{ hashFiles('mix.lock') }}
+          restore-keys: |
+            mix-deps-publish-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Download Zig (for Zigler)
+        run: mix zig.get
+
+      - name: Compile NIF from source
+        env:
+          MIX_ENV: dev
+        run: mix compile
+
+      - name: Generate checksum file from GitHub Release
+        run: mix zigler_precompiled.download GraphBLAS.Native.SuiteSparse --all --print 2>/dev/null
+
+      - name: Publish to Hex
+        run: mix hex.publish --yes
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
