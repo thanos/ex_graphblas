@@ -119,8 +119,8 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       semiring_code = semiring_to_code(sr)
 
       desc = Keyword.get(opts, :descriptor)
-      {a_ptr, _a} = maybe_transpose_inp0(a, desc)
-      {b_ptr, _b} = maybe_transpose_inp1(b, desc)
+      {a_ptr, a_transposed} = maybe_transpose_inp0(a, desc)
+      {b_ptr, b_transposed} = maybe_transpose_inp1(b, desc)
 
       mask_ptr = extract_mask_ptr(opts)
       mask_comp = mask_is_complement?(opts)
@@ -138,6 +138,9 @@ defmodule GraphBLAS.Backend.SuiteSparse do
         e ->
           cleanup_descriptor(desc_ptr)
           Error.error({:backend_error, __MODULE__, e})
+      after
+        maybe_free_transposed(a_ptr, a_transposed)
+        maybe_free_transposed(b_ptr, b_transposed)
       end
     end
   end
@@ -148,7 +151,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       semiring_code = semiring_to_code(sr)
 
       desc = Keyword.get(opts, :descriptor)
-      {m_ptr, _matrix} = maybe_transpose_inp0(matrix, desc)
+      {m_ptr, m_transposed} = maybe_transpose_inp0(matrix, desc)
 
       mask_ptr = extract_mask_ptr(opts)
       mask_comp = mask_is_complement?(opts)
@@ -163,6 +166,8 @@ defmodule GraphBLAS.Backend.SuiteSparse do
         e ->
           cleanup_descriptor(desc_ptr)
           Error.error({:backend_error, __MODULE__, e})
+      after
+        maybe_free_transposed(m_ptr, m_transposed)
       end
     end
   end
@@ -407,7 +412,7 @@ defmodule GraphBLAS.Backend.SuiteSparse do
       semiring_code = semiring_to_code(sr)
 
       desc = Keyword.get(opts, :descriptor)
-      {m_ptr, _matrix} = maybe_transpose_inp1(matrix, desc)
+      {m_ptr, m_transposed} = maybe_transpose_inp1(matrix, desc)
 
       mask_ptr = extract_mask_ptr(opts)
       mask_comp = mask_is_complement?(opts)
@@ -422,6 +427,8 @@ defmodule GraphBLAS.Backend.SuiteSparse do
         e ->
           cleanup_descriptor(desc_ptr)
           Error.error({:backend_error, __MODULE__, e})
+      after
+        maybe_free_transposed(m_ptr, m_transposed)
       end
     end
   end
@@ -668,33 +675,33 @@ defmodule GraphBLAS.Backend.SuiteSparse do
   defp validate_index(idx, max) when is_integer(idx) and idx >= 0 and idx < max, do: :ok
   defp validate_index(idx, max), do: Error.error({:index_out_of_bounds, idx, :index, max})
 
+  # Returns {ptr, transposed?} where transposed? indicates the ptr must be freed by caller.
   defp maybe_transpose_inp0(%Matrix{data: %{ptr: ptr}} = m, desc) do
     if is_struct(desc, GraphBLAS.Descriptor) and desc.inp0_transpose == :transpose do
       case matrix_transpose(m, []) do
-        {:ok, %Matrix{data: %{ptr: t_ptr}} = t} ->
-          {t_ptr, t}
-
-        {:error, _} = err ->
-          err
+        {:ok, %Matrix{data: %{ptr: t_ptr}}} -> {t_ptr, true}
+        {:error, _} = err -> err
       end
     else
-      {ptr, m}
+      {ptr, false}
     end
   end
 
   defp maybe_transpose_inp1(%Matrix{data: %{ptr: ptr}} = m, desc) do
     if is_struct(desc, GraphBLAS.Descriptor) and desc.inp1_transpose == :transpose do
       case matrix_transpose(m, []) do
-        {:ok, %Matrix{data: %{ptr: t_ptr}} = t} ->
-          {t_ptr, t}
-
-        {:error, _} = err ->
-          err
+        {:ok, %Matrix{data: %{ptr: t_ptr}}} -> {t_ptr, true}
+        {:error, _} = err -> err
       end
     else
-      {ptr, m}
+      {ptr, false}
     end
   end
+
+  defp maybe_free_transposed(ptr, true),
+    do: GraphBLAS.Native.SuiteSparse.matrix_free(ptr)
+
+  defp maybe_free_transposed(_ptr, false), do: :ok
 
   defp extract_mask_ptr(opts) do
     case Keyword.get(opts, :mask) do

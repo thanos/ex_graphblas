@@ -35,8 +35,10 @@ defmodule GraphBLAS.MixProject do
         "coveralls.post": :test,
         "coveralls.html": :test
       ],
+      source_url: @source_url,
       docs: [
-        # Hex.pm landing page: /doc/readme.html
+        source_url: @source_url,
+        source_ref: "v#{@version}",
         main: "readme",
         extras: [
           {"README.md", [title: "GraphBLAS"]},
@@ -73,7 +75,7 @@ defmodule GraphBLAS.MixProject do
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:benchee, "~> 1.3", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:excoveralls, "~> 0.18", only: :test},
+      {:excoveralls, "~> 0.18", only: :test, runtime: false},
       {:stream_data, "~> 1.1", only: [:dev, :test]},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false}
@@ -91,7 +93,7 @@ defmodule GraphBLAS.MixProject do
   end
 
   defp elixirc_paths(:dev), do: ["lib", "native", "bench"]
-  defp elixirc_paths(_), do: ["lib", "native"]
+  defp elixirc_paths(_), do: ["lib"]
 
   defp description do
     "Sparse linear algebra and graph computation in Elixir, inspired by the GraphBLAS standard."
@@ -102,8 +104,8 @@ defmodule GraphBLAS.MixProject do
       licenses: ["Apache-2.0"],
       maintainers: ["Thanos Vassilakis"],
       links: %{"GitHub" => @source_url},
-      # files: ~w(lib .formatter.exs mix.exs README.md LICENSE CHANGELOG.md),
-      exclude_patterns: ["bench", "docs", "guides", "plans", "prompts"]
+      files: ~w(lib native priv/native .formatter.exs mix.exs README.md LICENSE CHANGELOG.md),
+      exclude_patterns: ["bench", "docs", "plans", "prompts"]
     ]
   end
 
