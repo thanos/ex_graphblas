@@ -224,10 +224,36 @@ jobs:
           otp-version: "27"
           elixir-version: "1.18.4"
 
-      - name: Install SuiteSparse
+      - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgraphblas-dev pkg-config
+          sudo apt-get install -y pkg-config build-essential cmake
+
+      - name: Cache GraphBLAS v9.4.5
+        uses: actions/cache@v4
+        id: graphblas-cache-publish
+        with:
+          path: |
+            /usr/local/lib/libgraphblas.so*
+            /usr/local/include/suitesparse/GraphBLAS.h
+            /usr/local/lib/pkgconfig/GraphBLAS.pc
+          key: graphblas-v9.4.5-publish
+
+      - name: Build and install GraphBLAS v9.4.5
+        if: steps.graphblas-cache-publish.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v9.4.5 https://github.com/DrTimothyAldenDavis/GraphBLAS.git
+          cmake -S GraphBLAS -B GraphBLAS/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -DGRAPHBLAS_BUILD_PKGCONFIG=ON
+          cmake --build GraphBLAS/build -j"$(nproc)"
+          sudo cmake --install GraphBLAS/build
+          sudo ldconfig
+          rm -rf GraphBLAS
+
+      - name: Configure library paths
+        run: |
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=/usr/local/lib" >> "$GITHUB_ENV"
+          sudo ldconfig
 
       - name: Restore Mix dependencies cache
         uses: actions/cache@v4
@@ -249,7 +275,7 @@ jobs:
         run: mix compile
 
       - name: Generate checksum file from GitHub Release
-        run: mix zigler_precompiled.download GraphBLAS.Native.SuiteSparse --all --print
+        run: mix zigler_precompiled.download GraphBLAS.Native.SuiteSparse --all --print --ignore-unavailable
 
       - name: Publish to Hex
         run: mix hex.publish --yes

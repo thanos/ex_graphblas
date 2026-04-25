@@ -52,6 +52,14 @@ defmodule GraphBLAS.Native.SuiteSparse do
     base_url: "https://github.com/thanos/ex_graphblas/releases/download/v#{version}",
     version: version,
     force_build: System.get_env("EX_GRAPHBLAS_BUILD") in ["1", "true"],
+    targets: ~w(
+      aarch64-linux-gnu
+      aarch64-linux-musl
+      aarch64-macos-none
+      x86_64-linux-gnu
+      x86_64-linux-musl
+      x86_64-macos-none
+    ),
     zig_code_path: "../priv/native/suite_sparse/graphblas.zig",
     c: [
       link_lib: {:system, "graphblas"},
