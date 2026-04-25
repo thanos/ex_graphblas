@@ -68,6 +68,8 @@ defmodule GraphBLAS.Semiring do
   - `:add_identity` -- the 𝟎 identity element for the add operator
   - `:multiply_identity` -- the 𝟏 identity element for the multiply operator
   - `:type` -- the scalar type this semiring operates on
+
+  Raises `KeyError` if any required key is missing.
   """
   @spec new(keyword()) :: t()
   def new(opts) do

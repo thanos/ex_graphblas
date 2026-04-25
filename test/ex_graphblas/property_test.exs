@@ -605,4 +605,13 @@ if System.get_env("EX_GRAPHBLAS_COMPILE_NATIVE") in ["1", "true"] do
       end)
     end
   end
+else
+  defmodule GraphBLAS.PropertyTest do
+    use ExUnit.Case
+    @moduletag :skip
+    @tag :native_backend
+    test "skipped: native backend not compiled (set EX_GRAPHBLAS_COMPILE_NATIVE=1)" do
+      :ok
+    end
+  end
 end

@@ -36,6 +36,8 @@ defmodule GraphBLAS.UnaryOp do
 
   @doc """
   Creates a custom unary operator struct.
+
+  Raises `KeyError` if `:name`, `:function`, or `:type` is missing from `opts`.
   """
   @spec new(keyword()) :: t()
   def new(opts) do
@@ -58,6 +60,8 @@ defmodule GraphBLAS.UnaryOp do
 
   @doc """
   Returns the function implementation for a built-in unary operator name.
+
+  Raises `ArgumentError` if `name` is not a known built-in operator.
   """
   @spec fn_for(atom()) :: (term() -> term())
   def fn_for(:identity), do: &Function.identity/1

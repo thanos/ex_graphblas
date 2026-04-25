@@ -33,6 +33,8 @@ defmodule GraphBLAS.BinaryOp do
 
   Prefer using built-in operators by atom name when possible.
   Custom operators are for cases where the built-in set does not suffice.
+
+  Raises `KeyError` if `:name`, `:function`, or `:type` is missing from `opts`.
   """
   @spec new(keyword()) :: t()
   def new(opts) do
@@ -57,6 +59,8 @@ defmodule GraphBLAS.BinaryOp do
 
   @doc """
   Returns the function implementation for a built-in binary operator name.
+
+  Raises `ArgumentError` if `name` is not a known built-in operator.
   """
   @spec fn_for(atom()) :: (term(), term() -> term())
   def fn_for(:plus), do: &Kernel.+/2

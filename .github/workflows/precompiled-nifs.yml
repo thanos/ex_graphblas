@@ -249,7 +249,7 @@ jobs:
         run: mix compile
 
       - name: Generate checksum file from GitHub Release
-        run: mix zigler_precompiled.download GraphBLAS.Native.SuiteSparse --all --print 2>/dev/null
+        run: mix zigler_precompiled.download GraphBLAS.Native.SuiteSparse --all --print
 
       - name: Publish to Hex
         run: mix hex.publish --yes

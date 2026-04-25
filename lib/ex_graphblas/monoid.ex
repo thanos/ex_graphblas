@@ -45,6 +45,8 @@ defmodule GraphBLAS.Monoid do
   Creates a custom monoid struct.
 
   Prefer using built-in monoids by atom name when possible.
+
+  Raises `KeyError` if `:name`, `:operator`, `:identity`, or `:type` is missing from `opts`.
   """
   @spec new(keyword()) :: t()
   def new(opts) do
